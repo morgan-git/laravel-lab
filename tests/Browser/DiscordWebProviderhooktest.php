@@ -3,21 +3,6 @@
 use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Http\Request;
 
-/*
-|--------------------------------------------------------------------------
-| Assumptions (adjust to match your actual class if different):
-|--------------------------------------------------------------------------
-| - DiscordWebhookProvider is instantiated with no constructor args, and
-|   reads the public key from config('services.discord.public_key') at
-|   call time (same place your .env DISCORD_PUBLIC_KEY feeds into).
-| - verify(Request $request) reads the raw body via $request->getContent(),
-|   plus 'X-Signature-Ed25519' and 'X-Signature-Timestamp' headers.
-| - respond(mixed $data) returns a JsonResponse with at least a 'type' key.
-|
-| If your real signatures differ (e.g. constructor takes the key directly),
-| just tell me and I'll adjust — the crypto/test logic below stays the same.
-*/
-
 beforeEach(function () {
     // Generate a fresh Ed25519 keypair for each test so we're not
     // dependent on a real Discord app during CI.

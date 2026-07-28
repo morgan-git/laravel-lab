@@ -56,7 +56,7 @@ it('creates a new idea', function () {
         ->assertPathIs('/ideas');
     // ->debug();
     expect(Idea::count())->toBe(2);
-    expect($idea = $this->user->ideas()->latest()->first())->toMatchArray([
+    expect($idea = $this->user->ideas()->latest('id')->first())->toMatchArray([
         'title' => 'Braised Beef is Brilliant',
         'description' => 'skoopski potato',
         'state' => 'complete',
