@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\FeedProvider;
+use App\Contracts\WebhookProvider;
 use App\Models\User;
 use App\Services\RedditService;
+use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -20,13 +22,22 @@ class AppServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
-        $providers = [
+        $feedProviders = [
             'reddit' => RedditService::class,
             // 'youtube' => YouTubeService::class,
         ];
 
-        foreach ($providers as $name => $class) {
+        foreach ($feedProviders as $name => $class) {
             $this->app->bind(FeedProvider::class.':'.$name, $class);
+        }
+
+        $webhookProviders = [
+            'discord' => DiscordWebhookProvider::class,
+            // 'slack' => SlackWebhookProvider::class,
+        ];
+
+        foreach ($webhookProviders as $name => $class) {
+            $this->app->bind(WebhookProvider::class.':'.$name, $class);
         }
     }
 
