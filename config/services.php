@@ -37,7 +37,7 @@ return [
         ],
     ],
     'discord' => [
-    'public_key' => env('DISCORD_PUBLIC_KEY'),
-],
+        'public_key' => env('DISCORD_PUBLIC_KEY'),
+    ],
 
 ];
