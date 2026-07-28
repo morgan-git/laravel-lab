@@ -11,13 +11,13 @@ it('returns null when no posts exist for the given provider and handle', functio
         'active' => true,
     ]);
 
-    $selector = new FeedSelector();
+    $selector = new FeedSelector;
 
     expect($selector->random('reddit', 'memes'))->toBeNull();
 });
 
 it('returns null when no matching source exists at all', function () {
-    $selector = new FeedSelector();
+    $selector = new FeedSelector;
 
     expect($selector->random('reddit', 'nonexistent_subreddit'))->toBeNull();
 });

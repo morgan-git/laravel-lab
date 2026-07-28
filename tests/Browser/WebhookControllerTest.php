@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\FeedSource;
 use App\Models\WebhookRequest;
 
 beforeEach(function () {
@@ -73,12 +74,7 @@ it('responds to a Discord ping with type 1', function () {
         [],
         [],
         [],
-        array_merge([
-            'CONTENT_TYPE' => 'application/json',
-        ], [
-            'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'],
-            'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp'],
-        ]),
+        ['CONTENT_TYPE' => 'application/json', 'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'], 'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp']],
         $body
     );
 
@@ -111,7 +107,7 @@ it('logs a webhook request row on every request, starting as pending', function 
 });
 
 it('logs success on a valid slash command interaction', function () {
-    $source = \App\Models\FeedSource::factory()->reddit('memes')->create();
+    $source = FeedSource::factory()->reddit('memes')->create();
 
     $source->posts()->create([
         'external_id' => 'abc123',

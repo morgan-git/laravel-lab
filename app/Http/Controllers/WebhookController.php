@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 
 class WebhookController extends Controller
 {
-    private WebhookProvider $provider;
+    private readonly WebhookProvider $provider;
 
     public function __construct()
     {

@@ -27,7 +27,7 @@ beforeEach(function () {
 
     config(['services.discord.public_key' => bin2hex($this->publicKey)]);
 
-    $this->provider = new DiscordWebhookProvider();
+    $this->provider = new DiscordWebhookProvider;
 });
 
 function signBody(string $secretKey, string $timestamp, string $body): string
