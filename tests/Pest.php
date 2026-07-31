@@ -9,10 +9,15 @@ declare(strict_types=1);
  *
  * @property User $user
  * @property Idea $idea
+ * @property string $keypair
+ * @property string $publicKey
+ * @property string $secretKey
+ * @property DiscordWebhookProvider $provider
  */
 
 use App\Models\Idea;
 use App\Models\User;
+use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
