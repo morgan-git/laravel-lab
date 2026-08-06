@@ -1,24 +1,46 @@
 #!/bin/bash
 
-# 1. Check and start Queue Worker
-if pgrep -f "queue:work" > /dev/null; then
-    echo "Queue Worker is already running. Skipping."
-else
-    echo "Starting Queue Worker..."
-    php artisan queue:work > /dev/null 2>&1 &
+RESTART=false
+if [[ "$1" == "-r" || "$1" == "--restart" ]]; then
+    RESTART=true
+    echo "Restart flag set — killing existing processes first."
 fi
 
-# 2. Check and start Vite
-if pgrep -f "vite" > /dev/null; then
-    echo "Vite is already running. Skipping."
-else
-    echo "Starting Vite..."
-    npm run dev > /dev/null 2>&1 &
-fi
+# Helper: given a pgrep pattern and a start command, either skip, restart, or start fresh.
+start_process() {
+    local name="$1"
+    local pattern="$2"
+    local start_cmd="$3"
 
-# 3. Check and start MailPit
+    if pgrep -f "$pattern" > /dev/null; then
+        if [ "$RESTART" = true ]; then
+            echo "Restarting $name..."
+            pkill -f "$pattern"
+            sleep 1
+            eval "$start_cmd"
+        else
+            echo "$name is already running. Skipping."
+        fi
+    else
+        echo "Starting $name..."
+        eval "$start_cmd"
+    fi
+}
+
+start_process "Queue Worker" "queue:work" "php artisan queue:work > /dev/null 2>&1 &"
+start_process "Scheduler" "schedule:work" "php artisan schedule:work > /dev/null 2>&1 &"
+start_process "Vite" "vite" "npm run dev > /dev/null 2>&1 &"
+
+# MailPit uses a plain process name match (pgrep, not pgrep -f), keep that distinction.
 if pgrep "mailpit" > /dev/null; then
-    echo "MailPit is already running. Skipping."
+    if [ "$RESTART" = true ]; then
+        echo "Restarting MailPit..."
+        pkill "mailpit"
+        sleep 1
+        mailpit > /dev/null 2>&1 &
+    else
+        echo "MailPit is already running. Skipping."
+    fi
 else
     echo "Starting MailPit..."
     mailpit > /dev/null 2>&1 &
@@ -26,26 +48,9 @@ fi
 
 disown -a
 
-#pgrep -fl "vite|mailpit|queue:work"
 
+#Usage:
 
-#TODO adding for future use for prod version of this dev script create a systemservce?
-#sudo nano /etc/systemd/system/afterthesyntax-queue.service
-#sudo systemctl daemon-reload
-#sudo systemctl start afterthesyntax-queue
-#sudo systemctl enable afterthesyntax-queue
-#sudo systemctl status afterthesyntax-queue
-
-#[Unit]
-#Description=AFTERtheSYNTAX Laravel Queue Worker
-#After=network.target
-
-#[Service]
-#User=www-data
-#Group=www-data
-#Restart=always
-#ExecStart=/usr/bin/php /var/www/afterthesyntax/artisan queue:work --sleep=3 --tries=3 --max-time=3600
-#WorkingDirectory=/var/www/afterthesyntax
-
-#[Install]
-#WantedBy=multi-user.target
+#./scripts/process-up.sh          # normal behavior — skip anything already running
+#./scripts/process-up.sh -r       # kill everything managed, then start fresh
+#./scripts/process-up.sh --restart   # same thing, long form
