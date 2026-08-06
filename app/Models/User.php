@@ -17,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
 /**
  * @property-read Collection<int,Idea>$ideas
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -35,6 +35,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
     }
 
@@ -45,7 +46,6 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->id == 1;
-        // return true;
+        return $this->is_admin;
     }
 }

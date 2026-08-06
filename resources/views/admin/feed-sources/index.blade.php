@@ -52,38 +52,40 @@
                                     <span class="text-base-content/50">Never</span>
                                 @endif
                             </td>
-                            <td>
-                                <div class="flex justify-end gap-2">
-                                    <form method="POST" action="{{ route('admin.feed-sources.sync', $source) }}">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline">
-                                            Sync now
-                                        </button>
-                                    </form>
-
-                                    <form method="POST" action="{{ route('admin.feed-sources.toggle', $source) }}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="btn btn-sm btn-outline">
-                                            {{ $source->active ? 'Pause' : 'Activate' }}
-                                        </button>
-                                    </form>
-
-                                    <a href="{{ route('admin.feed-sources.edit', $source) }}" class="btn btn-sm btn-outline">
-                                        Edit
-                                    </a>
-
-                                    <form
-                                        method="POST"
-                                        action="{{ route('admin.feed-sources.destroy', $source) }}"
-                                        onsubmit="return confirm('Remove {{ $source->handle }}? This can\'t be undone.');"
-                                    >
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline btn-error">
-                                            Remove
-                                        </button>
-                                    </form>
+                            <td class="text-right">
+                                <div class="dropdown dropdown-end dropdown-bottom">
+                                    <div tabindex="0" role="button" class="btn btn-sm btn-ghost">⋮</div>
+                                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 shadow z-10 w-40 p-2">
+                                        <li>
+                                            <form method="POST" action="{{ route('admin.feed-sources.sync', $source) }}">
+                                                @csrf
+                                                <button type="submit" class="w-full text-left">Sync now</button>
+                                            </form>
+                                        </li>
+                                        <li>
+                                            <form method="POST" action="{{ route('admin.feed-sources.toggle', $source) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="w-full text-left">
+                                                    {{ $source->active ? 'Pause' : 'Activate' }}
+                                                </button>
+                                            </form>
+                                        </li>
+                                        <li>
+                                            <a href="{{ route('admin.feed-sources.edit', $source) }}">Edit</a>
+                                        </li>
+                                        <li>
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.feed-sources.destroy', $source) }}"
+                                                onsubmit="return confirm('Remove {{ $source->handle }}? This can\'t be undone.');"
+                                            >
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="w-full text-left text-error">Remove</button>
+                                            </form>
+                                        </li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
