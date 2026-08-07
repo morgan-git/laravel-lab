@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Contracts\FeedProvider;
 use App\Contracts\WebhookProvider;
 use App\Models\User;
+use App\Services\BlueSkyService;
 use App\Services\RedditService;
 use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Auth\Access\Response;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $feedProviders = [
             'reddit' => RedditService::class,
+            'bluesky' => BlueSkyService::class,
             // 'youtube' => YouTubeService::class,
         ];
 

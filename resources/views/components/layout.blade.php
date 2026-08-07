@@ -24,7 +24,7 @@
     </div>
 @endif
 <!-- MAIN CONTENT -->
-<main class="max-w-3xl mx-auto mt-6 pb-10 px-6">
+<main class="max-w-5xl mx-auto mt-6 pb-10 px-6">
     <div class="prose prose-invert">
         {{ $slot }}
     </div>
