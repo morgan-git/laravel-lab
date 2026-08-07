@@ -10,6 +10,7 @@ use App\Models\FeedSource;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 class SyncFeedSource implements ShouldQueue
 {
@@ -45,36 +46,39 @@ class SyncFeedSource implements ShouldQueue
 
         $lastFetched = $this->source->last_fetched_at;
 
-        $posts
+        $newPosts = $posts
             ->when($lastFetched, fn ($collection) => $collection->filter(
                 fn ($post) => Carbon::parse($post['updated'])->isAfter($lastFetched)
-            ))
-            ->each(function (array $post) {
-                FeedPost::updateOrCreate(
-                    [
-                        'feed_source_id' => $this->source->id,
-                        'external_id' => $post['id'],
-                    ],
-                    [
-                        'title' => $post['title'],
-                        'url' => $post['url'],
-                        'author' => $post['author'],
-                        'image_url' => $post['image'],
-                        'content' => $post['content'],
-                        'posted_at' => $post['updated'],
-                    ]
-                );
-            });
-        var_dump($posts);
-        if ($posts->isNotEmpty()) {
+            ));
+
+        $newPosts->each(function (array $post) {
+            FeedPost::updateOrCreate(
+                [
+                    'feed_source_id' => $this->source->id,
+                    'external_id' => $post['id'],
+                ],
+                [
+                    'title' => $post['title'],
+                    'url' => $post['url'],
+                    'author' => $post['author'],
+                    'image_url' => $post['image'],
+                    'content' => $post['content'],
+                    'posted_at' => $post['updated'],
+                ]
+            );
+        });
+
+        if ($newPosts->isNotEmpty()) {
             $this->source->update([
                 'last_fetched_at' => now(),
             ]);
         }
-        /**Log::info('Feed sync complete', [
+
+        Log::info('Feed sync complete', [
             'provider' => $this->source->provider,
             'handle' => $this->source->handle,
-            'count' => $posts->count(),
-        ]);**/
+            'fetched' => $posts->count(),
+            'new' => $newPosts->count(),
+        ]);
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\FeedSourceController;
+use App\Http\Controllers\Admin\JobController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,4 +14,9 @@ Route::middleware(['auth', 'can:view-admin'])->prefix('admin')->name('admin.')->
 
     Route::get('users', [UserController::class, 'index'])->name('users.index');
     Route::patch('users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');
+
+    Route::get('jobs', [JobController::class, 'index'])->name('jobs.index');
+    Route::delete('jobs/{job}', [JobController::class, 'cancel'])->name('jobs.cancel');
+    Route::post('failed-jobs/{failedJob}/retry', [JobController::class, 'retry'])->name('jobs.retry');
+    Route::delete('failed-jobs/{failedJob}', [JobController::class, 'forget'])->name('jobs.forget');
 });

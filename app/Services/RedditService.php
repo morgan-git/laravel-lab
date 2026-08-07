@@ -38,7 +38,9 @@ class RedditService implements FeedProvider
         $this->client = $client ?? new Client([
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
-                'Accept' => 'application/atom+xml',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language' => 'en-US,en;q=0.9',
+                'Referer' => 'https://www.reddit.com/',
             ],
         ]);
     }
@@ -52,7 +54,11 @@ class RedditService implements FeedProvider
                 return collect();
             }
 
-            $xml = simplexml_load_string((string) $response->getBody());
+            $xml = $this->parseXml((string) $response->getBody());
+
+            if (! $xml instanceof \SimpleXMLElement) {
+                return collect();
+            }
 
             return $this->parseFeed($xml);
 
@@ -65,6 +71,35 @@ class RedditService implements FeedProvider
         } catch (ServerException) {
             return collect();
         }
+    }
+
+    /**
+     * Reddit's feed content occasionally contains raw, unescaped
+     * ampersands (e.g. from embedded CSS/HTML) that aren't valid XML
+     * entities. simplexml_load_string() fails silently (returns false)
+     * on these rather than throwing, so we retry once after escaping
+     * any '&' that isn't already a recognized entity.
+     */
+    protected function parseXml(string $body): ?\SimpleXMLElement
+    {
+        libxml_use_internal_errors(true);
+        libxml_clear_errors();
+
+        $xml = simplexml_load_string($body);
+
+        if ($xml === false) {
+            $sanitized = preg_replace(
+                '/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)/',
+                '&amp;',
+                $body
+            );
+
+            $xml = simplexml_load_string((string) $sanitized);
+        }
+
+        libxml_clear_errors();
+
+        return $xml !== false ? $xml : null;
     }
 
     protected function parseFeed(\SimpleXMLElement $xml): Collection
