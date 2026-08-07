@@ -39,5 +39,7 @@ return [
     'discord' => [
         'public_key' => env('DISCORD_PUBLIC_KEY'),
     ],
-
+    'tumblr' => [
+        'key' => env('TUMBLR_API_KEY'),
+    ],
 ];

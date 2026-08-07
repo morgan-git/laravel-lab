@@ -9,6 +9,7 @@ use App\Contracts\WebhookProvider;
 use App\Models\User;
 use App\Services\BlueSkyService;
 use App\Services\RedditService;
+use App\Services\TumblrService;
 use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
         $feedProviders = [
             'reddit' => RedditService::class,
             'bluesky' => BlueSkyService::class,
+            'tumblr' => TumblrService::class,
             // 'youtube' => YouTubeService::class,
         ];
 
