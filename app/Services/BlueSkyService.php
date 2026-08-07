@@ -49,7 +49,6 @@ class BlueSkyService implements FeedProvider
             );
 
             if ($response->getStatusCode() !== 200) {
-                echo "Error fetching feed for {$handle}";
 
                 return collect();
             }

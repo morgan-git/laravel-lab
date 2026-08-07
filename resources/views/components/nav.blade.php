@@ -66,6 +66,7 @@
                     <ul class="p-2 w-40 rounded-box shadow z-100">
                         <li><a href="/admin/feed-sources">Feed Manager</a></li>
                         <li><a href="/admin/jobs/">Job Queue</a></li>
+                        <li><a href="/admin/users/">Users</a></li>
                     </ul>
                 </details>
             </li>

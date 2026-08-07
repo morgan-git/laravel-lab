@@ -10,6 +10,7 @@ use App\Models\FeedSource;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class SyncFeedSource implements ShouldQueue
@@ -30,6 +31,12 @@ class SyncFeedSource implements ShouldQueue
 
     public function handle(): void
     {
+        Log::channel('feed-sync')->info('Sync started', [
+            'provider' => $this->source->provider,
+            'handle' => $this->source->handle,
+            'active' => $this->source->active,
+        ]);
+
         if (! $this->source->active) {
             return;
         }
@@ -39,6 +46,11 @@ class SyncFeedSource implements ShouldQueue
         $posts = $provider->fetch($this->source->handle);
 
         if ($posts->get('throttled')) {
+            Log::channel('feed-sync')->warning('Throttled by provider, releasing job', [
+                'provider' => $this->source->provider,
+                'handle' => $this->source->handle,
+            ]);
+
             $this->release(300);
 
             return;
@@ -72,9 +84,13 @@ class SyncFeedSource implements ShouldQueue
             $this->source->update([
                 'last_fetched_at' => now(),
             ]);
+
+            // Evict the public feed page's cached results so new posts
+            // show up immediately instead of waiting out the 30 min TTL.
+            Cache::forget("{$this->source->provider}_{$this->source->handle}");
         }
 
-        Log::info('Feed sync complete', [
+        Log::channel('feed-sync')->info('Feed sync complete', [
             'provider' => $this->source->provider,
             'handle' => $this->source->handle,
             'fetched' => $posts->count(),

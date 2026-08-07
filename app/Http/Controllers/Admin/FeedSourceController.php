@@ -18,7 +18,7 @@ class FeedSourceController extends Controller
      * Providers currently registered as tagged FeedProvider bindings.
      * Keep this list in sync with AppServiceProvider's $feedProviders array.
      */
-    private const array AVAILABLE_PROVIDERS = ['reddit', 'bluesky'];
+    private const array AVAILABLE_PROVIDERS = ['reddit', 'bluesky', 'tumblr'];
 
     public function index(): View
     {
