@@ -9,22 +9,31 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedController extends Controller
 {
-    public function index(string $provider = 'bluesky', string $handle = 'food-porn.bsky.social')
+    public function index(?string $provider = null, ?string $handle = null)
     {
+        $cacheKey = 'feed_'.($provider ?? 'all').'_'.($handle ?? 'all');
+
         $posts = Cache::remember(
-            "{$provider}_{$handle}",
+            $cacheKey,
             now()->addMinutes(30),
-            fn () => FeedPost::whereHas(
-                'source',
-                fn ($q) => $q
-                    ->where('provider', $provider)
-                    ->where('handle', $handle)
-            )
+            fn () => FeedPost::whereHas('source', function ($q) use ($provider, $handle) {
+                if ($provider) {
+                    $q->where('provider', $provider);
+                }
+
+                if ($handle) {
+                    $q->where('handle', $handle);
+                }
+            })
                 ->orderByDesc('posted_at')
                 ->get()
                 ->toArray()
         );
 
-        return view('feed.index', ['posts' => collect($posts), 'provider' => $provider, 'handle' => $handle]);
+        return view('feed.index', [
+            'posts' => collect($posts),
+            'provider' => $provider,
+            'handle' => $handle,
+        ]);
     }
 }

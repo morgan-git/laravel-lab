@@ -71,6 +71,18 @@
                 </details>
             </li>
             @endcan
+               <li>
+                <details>
+                    <summary>Feeds</summary>
+                    <ul class="p-2 w-40 rounded-box shadow z-100">
+                        <li><a href="/feed/tumblr/memes">Tumblr Memes</a></li>
+                        <li><a href="/feed/tumblr/foodporn">Tumblr Food Porn</a></li>
+                        <li><a href="/feed/tumblr/antifoodporn">Anti Food Porn</a></li>
+                        <li><a href="/feed/reddit">Reddit</a></li>
+                        <li><a href="/feed/bluesky">Bluesky</a></li>
+                    </ul>
+                </details>
+            </li>
             <li><a href="/about">About</a></li>
             <li><a href="/contact">Contact</a></li>
         </ul>

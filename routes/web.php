@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\SessionsController;
+use App\Http\Controllers\FeedController;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/ideas.php';
 require __DIR__.'/feeds.php';
 require __DIR__.'/admin.php';
 
-Route::view('/', 'index', [
-    'greeting' => "Don't stop letting people not help",
-    'person' => request('person') ?? 'Larry',
-    'tasks' => ['Dadood Frumcheers', 'Count Ravioli', 'Disfatt Bidge', 'Diddy Doodat'],
-]);
+Route::get('/', [FeedController::class, 'index']);
 
 Route::middleware('guest')->group(function (): void {
 
