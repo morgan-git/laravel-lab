@@ -28,7 +28,15 @@
                         <li><a href="/ideas/">List</a></li>
                     </ul>
                 </li>
-                @can('view-admin') <li><a href="/admin">Admin</a></li> @endcan
+                @can('view-admin')
+                    <li>
+                        <a href="/admin">Admin</a>
+                        <ul class="p-2 z-500">
+                            <li><a href="/admin/feed-sources">Feed Manager</a></li>
+                            <li><a href="/admin/jobs/">Job Queue</a></li>
+                        </ul>
+                    </li>
+                @endcan
                 <li><a href="/about">About</a></li>
                 <li><a href="/contact">Contact</a></li>
             </ul>
@@ -51,7 +59,17 @@
                     </ul>
                 </details>
             </li>
-           @can('view-admin') <li><a href="/admin">Admin</a></li> @endcan
+            @can('view-admin')
+              <li>
+                <details>
+                    <summary>Admin</summary>
+                    <ul class="p-2 w-40 rounded-box shadow z-100">
+                        <li><a href="/admin/feed-sources">Feed Manager</a></li>
+                        <li><a href="/admin/jobs/">Job Queue</a></li>
+                    </ul>
+                </details>
+            </li>
+            @endcan
             <li><a href="/about">About</a></li>
             <li><a href="/contact">Contact</a></li>
         </ul>

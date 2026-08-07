@@ -53,7 +53,7 @@
                                 @endif
                             </td>
                             <td class="text-right">
-                                <div class="dropdown dropdown-end dropdown-bottom">
+                               <div class="dropdown dropdown-end {{ $loop->index >= $loop->count - 2 ? 'dropdown-top' : 'dropdown-bottom' }}">
                                     <div tabindex="0" role="button" class="btn btn-sm btn-ghost">⋮</div>
                                     <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 shadow z-10 w-40 p-2">
                                         <li>
