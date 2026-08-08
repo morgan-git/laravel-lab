@@ -13,10 +13,12 @@ class FeedSourceFactory extends Factory
     {
         return [
             'provider' => 'reddit',
-            'handle' => $this->faker->randomElement(['foodporn', 'memes', 'foodcrime', 'dankmemes', 'wholesomememes']),
+            'handle' => $this->faker->randomElement(['foodporn', 'memes']),
             'display_name' => $this->faker->words(2, true),
             'active' => true,
             'last_fetched_at' => null,
+            'visible' => true,
+            'topic' => 'foodporn',
         ];
     }
 
@@ -25,12 +27,12 @@ class FeedSourceFactory extends Factory
         return $this->state(fn () => ['active' => false]);
     }
 
-    public function reddit(string $handle): static
+    public function reddit(string $topic): static
     {
         return $this->state(fn () => [
             'provider' => 'reddit',
-            'handle' => $handle,
-            'display_name' => "r/{$handle}",
+            'topic' => $topic,
+            'display_name' => "r/{$topic}",
         ]);
     }
 }

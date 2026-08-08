@@ -57,6 +57,24 @@
     @enderror
 </div>
 
+<div class="form-control mb-4">
+    <label class="label" for="topic">
+        <span class="label-text">Topic</span>
+        <span class="label-text-alt">user-facing category, e.g. "foodporn" — shared across providers</span>
+    </label>
+    <input
+        type="text"
+        name="topic"
+        id="topic"
+        class="input input-bordered"
+        value="{{ old('topic', $source->topic ?? '') }}"
+        required
+    >
+    @error('topic')
+        <span class="text-error text-sm mt-1">{{ $message }}</span>
+    @enderror
+</div>
+
 <div class="form-control mb-2">
     <label class="label cursor-pointer justify-start gap-3">
         <input
