@@ -22,6 +22,7 @@
                         <th>Handle</th>
                         <th>Display name</th>
                         <th>Status</th>
+                        <th>Visibility</th>
                         <th>Posts</th>
                         <th>Last fetched</th>
                         <th class="text-right">Actions</th>
@@ -37,9 +38,16 @@
                             <td>{{ $source->display_name }}</td>
                             <td>
                                 @if ($source->active)
-                                    <span class="badge badge-success">Active</span>
+                                    <span class="badge badge-soft badge-success">Active</span>
                                 @else
                                     <span class="badge badge-ghost">Paused</span>
+                                @endif
+                            </td>
+                             <td>
+                                @if ($source->visible)
+                                    <span class="badge badge-soft badge-success">Visible</span>
+                                @else
+                                    <span class="badge  badge-ghost">Hidden</span>
                                 @endif
                             </td>
                             <td>{{ $source->posts_count }}</td>
@@ -68,6 +76,15 @@
                                                 @method('PATCH')
                                                 <button type="submit" class="w-full text-left">
                                                     {{ $source->active ? 'Pause' : 'Activate' }}
+                                                </button>
+                                            </form>
+                                        </li>
+                                         <li>
+                                            <form method="POST" action="{{ route('admin.feed-sources.toggle-visibility', $source) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="w-full text-left">
+                                                    {{ $source->visible ? 'Hide' : 'Show' }}
                                                 </button>
                                             </form>
                                         </li>

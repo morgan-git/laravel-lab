@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\FeedPost;
+use App\Models\FeedSource;
 use Illuminate\Support\Facades\Cache;
 
 class FeedController extends Controller
@@ -12,7 +13,11 @@ class FeedController extends Controller
     public function index(?string $provider = null, ?string $handle = null)
     {
         $cacheKey = 'feed_'.($provider ?? 'all').'_'.($handle ?? 'all');
-
+        $availableSources = FeedSource::where('visible', 1)
+            ->withCount('posts')
+            ->orderBy('provider')
+            ->orderBy('handle')
+            ->get();
         $posts = Cache::remember(
             $cacheKey,
             now()->addMinutes(30),
@@ -34,6 +39,7 @@ class FeedController extends Controller
             'posts' => collect($posts),
             'provider' => $provider,
             'handle' => $handle,
+            'availableSources' => $availableSources,
         ]);
     }
 }

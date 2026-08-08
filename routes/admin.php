@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'can:view-admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('feed-sources', FeedSourceController::class)->except(['show']);
     Route::patch('feed-sources/{feedSource}/toggle', [FeedSourceController::class, 'toggle'])->name('feed-sources.toggle');
+    Route::patch('feed-sources/{feedSource}/toggle-visibility', [FeedSourceController::class, 'toggleVisibility'])->name('feed-sources.toggle-visibility');
+
     Route::post('feed-sources/{feedSource}/sync', [FeedSourceController::class, 'sync'])->name('feed-sources.sync');
 
     Route::get('users', [UserController::class, 'index'])->name('users.index');

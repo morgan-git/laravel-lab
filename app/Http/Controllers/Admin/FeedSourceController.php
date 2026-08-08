@@ -90,6 +90,17 @@ class FeedSourceController extends Controller
             ->with('status', "{$feedSource->handle} {$state}.");
     }
 
+    public function toggleVisibility(FeedSource $feedSource): RedirectResponse
+    {
+        $feedSource->update(['visible' => ! $feedSource->visible]);
+
+        $state = $feedSource->visible ? 'shown' : 'hidden';
+
+        return redirect()
+            ->route('admin.feed-sources.index')
+            ->with('status', "{$feedSource->handle} {$state}.");
+    }
+
     /**
      * Manually dispatch a sync for this one source, instead of waiting
      * for the next scheduled feeds:sync run.

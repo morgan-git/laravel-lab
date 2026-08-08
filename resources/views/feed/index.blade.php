@@ -1,6 +1,29 @@
 <x-layout>
 <div class="p-6" x-data="{ activeImage: null, activeTitle: '', activeContent: '', activeUrl: '#' }">
-    <h1 class="text-2xl font-bold mb-6 capitalize">{{ $provider }} — {{ $handle }}</h1>
+
+    <!-- Top Flex Container: Pushes title left and dropdown right on medium screens -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <h1 class="text-2xl font-bold capitalize">
+            @if(isset($provider) && isset($handle))
+                {{ $provider }} — {{ $handle }}
+            @else
+                Content Hub
+            @endif
+        </h1>
+
+        <!-- Source / Handle Filter Dropdown -->
+        <div class="flex items-center">
+            <select class="select select-bordered select-sm w-full md:w-64" onchange="if (this.value) window.location.href=this.value">
+                <option value="{{ route('feed.index') }}">Filter by Source...</option>
+                @foreach($availableSources as $source)
+                    <option value="{{ route('feed.index', ['provider' => $source->provider, 'handle' => $source->handle]) }}"
+                            @if(isset($provider) && isset($handle) && $provider === $source->provider && $handle === $source->display_name) selected @endif>
+                        {{ ucfirst($source->provider) }} — {{ $source->display_name }} ({{ $source->posts_count }})
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    </div>
 
     <!-- Responsive Grid Layout -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -30,7 +53,7 @@
                     </a>
 
                     <div class="text-xs text-base-content/60 mt-2">
-                        {{ $post['author'] ?? $handle }} · {{ isset($post['updated_at']) ? \Carbon\Carbon::parse($post['updated_at'])->diffForHumans() : '' }}
+                        {{ $post['author'] ?? $handle ?? 'Unknown' }} · {{ isset($post['updated_at']) ? \Carbon\Carbon::parse($post['updated_at'])->diffForHumans() : '' }}
                     </div>
                 </div>
             </div>
