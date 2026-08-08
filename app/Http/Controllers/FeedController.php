@@ -12,22 +12,20 @@ class FeedController extends Controller
 {
     public function index(?string $provider = null, ?string $handle = null)
     {
-        $cacheKey = 'feed_'.($provider ?? 'all').'_'.($handle ?? 'all');
-        $availableSources = FeedSource::where('visible', 1)
-            ->withCount('posts')
-            ->orderBy('provider')
-            ->orderBy('handle')
-            ->get();
+        $sources = $this->cachedActiveSources();
+
+        $postsCacheKey = 'feed_posts_'.($provider ?? 'all').'_'.($handle ?? 'all');
+
         $posts = Cache::remember(
-            $cacheKey,
+            $postsCacheKey,
             now()->addMinutes(30),
-            fn () => FeedPost::whereHas('source', function ($q) use ($provider, $handle) {
+            fn () => FeedPost::whereHas('source', function ($query) use ($provider, $handle) {
                 if ($provider) {
-                    $q->where('provider', $provider);
+                    $query->where('provider', $provider);
                 }
 
                 if ($handle) {
-                    $q->where('handle', $handle);
+                    $query->where('handle', $handle);
                 }
             })
                 ->orderByDesc('posted_at')
@@ -39,7 +37,30 @@ class FeedController extends Controller
             'posts' => collect($posts),
             'provider' => $provider,
             'handle' => $handle,
-            'availableSources' => $availableSources,
+            'sources' => $sources,
         ]);
+    }
+
+    /**
+     * Active feed sources, keyed by id so the view can look up a post's
+     * source via $sources[$post['feed_source_id']] instead of relying
+     * on eager-loaded relations or data_get() fallback chains. Cached
+     * separately from post content — the source list barely changes,
+     * so it gets a much longer TTL than post content does.
+     */
+    private function cachedActiveSources()
+    {
+        $sources = Cache::remember(
+            'feed_active_sources',
+            now()->addHour(),
+            fn () => FeedSource::where('visible', true)
+                ->withCount('posts')
+                ->orderBy('provider')
+                ->orderBy('handle')
+                ->get()
+                ->toArray()
+        );
+
+        return collect($sources)->keyBy('id');
     }
 }

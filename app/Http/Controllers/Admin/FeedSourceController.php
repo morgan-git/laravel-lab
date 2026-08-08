@@ -9,6 +9,7 @@ use App\Jobs\SyncFeedSource;
 use App\Models\FeedSource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -19,6 +20,12 @@ class FeedSourceController extends Controller
      * Keep this list in sync with AppServiceProvider's $feedProviders array.
      */
     private const array AVAILABLE_PROVIDERS = ['reddit', 'bluesky', 'tumblr'];
+
+    /**
+     * Cache key the public feed page uses for its list of visible sources.
+     * Kept in sync with FeedController::cachedActiveSources().
+     */
+    private const string SOURCES_CACHE_KEY = 'feed_active_sources';
 
     public function index(): View
     {
@@ -45,6 +52,8 @@ class FeedSourceController extends Controller
 
         FeedSource::create($validated);
 
+        Cache::forget(self::SOURCES_CACHE_KEY);
+
         return redirect()
             ->route('admin.feed-sources.index')
             ->with('status', "Added {$validated['provider']}/{$validated['handle']}.");
@@ -64,6 +73,8 @@ class FeedSourceController extends Controller
 
         $feedSource->update($validated);
 
+        Cache::forget(self::SOURCES_CACHE_KEY);
+
         return redirect()
             ->route('admin.feed-sources.index')
             ->with('status', "Updated {$feedSource->provider}/{$feedSource->handle}.");
@@ -73,6 +84,8 @@ class FeedSourceController extends Controller
     {
         $label = "{$feedSource->provider}/{$feedSource->handle}";
         $feedSource->delete();
+
+        Cache::forget(self::SOURCES_CACHE_KEY);
 
         return redirect()
             ->route('admin.feed-sources.index')
@@ -85,6 +98,11 @@ class FeedSourceController extends Controller
 
         $state = $feedSource->active ? 'activated' : 'paused';
 
+        // 'active' only controls syncing, not public visibility, but the
+        // sources cache also carries active/paused state for the admin
+        // list — safe and cheap to just invalidate it here too.
+        Cache::forget(self::SOURCES_CACHE_KEY);
+
         return redirect()
             ->route('admin.feed-sources.index')
             ->with('status', "{$feedSource->handle} {$state}.");
@@ -95,6 +113,8 @@ class FeedSourceController extends Controller
         $feedSource->update(['visible' => ! $feedSource->visible]);
 
         $state = $feedSource->visible ? 'shown' : 'hidden';
+
+        Cache::forget(self::SOURCES_CACHE_KEY);
 
         return redirect()
             ->route('admin.feed-sources.index')
@@ -128,6 +148,7 @@ class FeedSourceController extends Controller
             ],
             'display_name' => ['required', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
+            'visible' => ['sometimes', 'boolean'],
         ]);
     }
 }
