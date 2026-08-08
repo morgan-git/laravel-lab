@@ -12,27 +12,20 @@ class FeedSourceFactory extends Factory
     public function definition(): array
     {
         return [
-            'provider' => 'reddit',
-            'handle' => $this->faker->randomElement(['foodporn', 'memes']),
+            'provider' => $this->faker->word(),
+            'handle' => $this->faker->word(),
             'display_name' => $this->faker->words(2, true),
             'active' => true,
             'last_fetched_at' => null,
             'visible' => true,
-            'topic' => 'foodporn',
+            'topic' => $this->faker->word(),
         ];
     }
 
     public function inactive(): static
     {
-        return $this->state(fn () => ['active' => false]);
-    }
-
-    public function reddit(string $topic): static
-    {
         return $this->state(fn () => [
-            'provider' => 'reddit',
-            'topic' => $topic,
-            'display_name' => "r/{$topic}",
+            'active' => false,
         ]);
     }
 }
