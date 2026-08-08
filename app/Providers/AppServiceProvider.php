@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Contracts\FeedProvider;
 use App\Contracts\WebhookProvider;
+use App\Models\FeedSource;
 use App\Models\User;
 use App\Services\BlueSkyService;
 use App\Services\RedditService;
@@ -14,6 +15,7 @@ use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -55,5 +57,9 @@ class AppServiceProvider extends ServiceProvider
         Model::unguard();
         Model::shouldBeStrict();
         Model::automaticallyEagerLoadRelationships();
+
+        View::composer('components.nav', function ($view) {
+            $view->with('navFeedSources', FeedSource::cachedVisible());
+        });
     }
 }

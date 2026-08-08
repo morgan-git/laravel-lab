@@ -23,9 +23,10 @@ class FeedSourceController extends Controller
 
     /**
      * Cache key the public feed page uses for its list of visible sources.
-     * Kept in sync with FeedController::cachedActiveSources().
+     * Lives on the FeedSource model as the single source of truth —
+     * referenced here so this key can never drift out of sync with it.
      */
-    private const string SOURCES_CACHE_KEY = 'feed_active_sources';
+    private const string SOURCES_CACHE_KEY = FeedSource::VISIBLE_CACHE_KEY;
 
     public function index(): View
     {

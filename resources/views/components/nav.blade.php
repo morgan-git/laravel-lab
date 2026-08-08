@@ -28,12 +28,27 @@
                         <li><a href="/ideas/">List</a></li>
                     </ul>
                 </li>
+
+                <li>
+                    <span>Feeds</span>
+                    <ul class="p-2 z-500">
+                        @foreach ($navFeedSources as $source)
+                            <li>
+                                <a href="{{ route('feed.index', ['provider' => $source['provider'], 'handle' => $source['handle']]) }}">
+                                    {{ ucfirst($source['provider']) }} — {{ $source['display_name'] }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </li>
+
                 @can('view-admin')
                     <li>
                         <a href="/admin">Admin</a>
                         <ul class="p-2 z-500">
                             <li><a href="/admin/feed-sources">Feed Manager</a></li>
                             <li><a href="/admin/jobs/">Job Queue</a></li>
+                            <li><a href="/admin/users/">Users</a></li>
                         </ul>
                     </li>
                 @endcan
@@ -51,7 +66,7 @@
             <li><a href="/">Home</a></li>
 
             <li>
-                <details>
+                <details name="nav-dropdown">
                     <summary>Ideas</summary>
                     <ul class="p-2 w-40 rounded-box shadow z-100">
                         <li><a href="/ideas">List</a></li>
@@ -59,9 +74,27 @@
                     </ul>
                 </details>
             </li>
+
+            <li>
+                <details name="nav-dropdown">
+                    <summary>Feeds</summary>
+                    <ul class="p-2 w-56 rounded-box shadow z-100">
+                        @forelse ($navFeedSources as $source)
+                            <li>
+                                <a href="{{ route('feed.index', ['provider' => $source['provider'], 'handle' => $source['handle']]) }}">
+                                    {{ ucfirst($source['provider']) }} — {{ $source['display_name'] }}
+                                </a>
+                            </li>
+                        @empty
+                            <li><span class="text-base-content/50">No sources yet</span></li>
+                        @endforelse
+                    </ul>
+                </details>
+            </li>
+
             @can('view-admin')
               <li>
-                <details>
+                <details name="nav-dropdown">
                     <summary>Admin</summary>
                     <ul class="p-2 w-40 rounded-box shadow z-100">
                         <li><a href="/admin/feed-sources">Feed Manager</a></li>
@@ -71,18 +104,7 @@
                 </details>
             </li>
             @endcan
-               <li>
-                <details>
-                    <summary>Feeds</summary>
-                    <ul class="p-2 w-40 rounded-box shadow z-100">
-                        <li><a href="/feed/tumblr/memes">Tumblr Memes</a></li>
-                        <li><a href="/feed/tumblr/foodporn">Tumblr Food Porn</a></li>
-                        <li><a href="/feed/tumblr/antifoodporn">Anti Food Porn</a></li>
-                        <li><a href="/feed/reddit">Reddit</a></li>
-                        <li><a href="/feed/bluesky">Bluesky</a></li>
-                    </ul>
-                </details>
-            </li>
+
             <li><a href="/about">About</a></li>
             <li><a href="/contact">Contact</a></li>
         </ul>

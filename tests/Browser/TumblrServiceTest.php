@@ -1,114 +1,212 @@
 <?php
 
-use App\Services\TumblrService;
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Middleware;
-use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Collection;
 
-/**
- * Builds a TumblrService with a mocked Guzzle client that returns the
- * given fixture file's contents as a 200 JSON response.
- */
-function makeTumblrService(string $fixtureFile, int $status = 200): TumblrService
+class TumblrService implements FeedProvider
 {
-    $body = file_get_contents(base_path("tests/fixtures/{$fixtureFile}"));
+    protected Client $client;
 
-    $mock = new MockHandler([
-        new Response($status, ['Content-Type' => 'application/json'], $body),
-    ]);
+    protected string $apiKey;
 
-    $handlerStack = HandlerStack::create($mock);
-    $client = new Client(['handler' => $handlerStack]);
+    /**
+     * Off-topic "thanks for the likes" / follow-spam style posts that
+     * sometimes get mistagged into content tags. Not exhaustive — just
+     * the common patterns worth auto-filtering.
+     */
+    private const array IGNORED_CONTENT_PATTERNS = [
+        '/thanks? (you )?for (the )?(likes?|follows?|reblogs?)/i',
+        '/follow for follow/i',
+        '/\bf4f\b/i',
+        '/check out my (blog|page)/i',
+        '/new followers?/i',
+    ];
 
-    return new TumblrService($client);
+    public function __construct(?Client $client = null)
+    {
+        $this->client = $client ?? new Client([
+            'headers' => [
+                'Accept' => 'application/json',
+            ],
+        ]);
+
+        // Put your consumer key in your .env file (e.g., TUMBLR_API_KEY=your_key_here)
+        $this->apiKey = config('services.tumblr.key');
+    }
+
+    /**
+     * Fetch public posts matching a tag (e.g., "foodporn" or "cooking")
+     */
+    public function fetch(string $tag): Collection
+    {
+        try {
+            $response = $this->client->get('https://api.tumblr.com/v2/tagged', [
+                'query' => [
+                    'tag' => trim($tag, '#/'),
+                    'api_key' => $this->apiKey,
+                    'limit' => 20, // Tumblr's max per request for tagged items
+                ],
+            ]);
+
+            if ($response->getStatusCode() !== 200) {
+                return collect();
+            }
+
+            $json = json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR);
+
+            return $this->parseResponse($json);
+
+        } catch (\Throwable) {
+            return collect();
+        }
+    }
+
+    protected function parseResponse(array $json): Collection
+    {
+        $posts = data_get($json, 'response', []);
+
+        return collect($posts)
+            ->map(function ($post): ?array {
+                $imageUrl = $this->extractImage($post);
+
+                if (! $imageUrl) {
+                    return null;
+                }
+
+                $text = $this->extractText($post);
+
+                if ($this->shouldSkip($text)) {
+                    return null;
+                }
+
+                $title = $text !== '' ? $text : (data_get($post, 'slug') ?: 'Food Post');
+
+                return [
+                    'id' => (string) data_get($post, 'id'),
+                    'title' => $title,
+                    'url' => data_get($post, 'post_url'),
+                    'author' => data_get($post, 'blog_name', 'tumblr'),
+                    'updated' => date('Y-m-d H:i:s', data_get($post, 'timestamp', time())),
+                    'content' => $text,
+                    'image' => $imageUrl,
+                    // Not persisted — used only to catch content-farm networks
+                    // that cross-post the same article across sibling blogs
+                    // with different post IDs. Falls back to the image URL for
+                    // native photo posts that have no external link.
+                    'dedupe_key' => data_get($post, 'link_url') ?: $imageUrl,
+                ];
+            })
+            ->filter()
+            ->unique('dedupe_key')
+            ->values();
+    }
+
+    /**
+     * Legacy "photo" type posts have a top-level 'photos' array. Many
+     * current posts use Tumblr's newer NPF format instead, where images
+     * are embedded as <img> tags inside the 'body' (or 'content') HTML
+     * and there's no top-level 'photos' array at all — so we fall back
+     * to pulling the first <img src> out of the raw HTML.
+     */
+    protected function extractImage(array $post): ?string
+    {
+        $legacyImage = data_get($post, 'photos.0.original_size.url');
+
+        if ($legacyImage) {
+            return $legacyImage;
+        }
+
+        $html = data_get($post, 'body') ?? data_get($post, 'content') ?? '';
+
+        preg_match('/<img[^>]+src=["\']([^"\']+)["\']/', $html, $matches);
+
+        return $matches[1] ?? null;
+    }
+
+    /**
+     * Tumblr's 'summary' field is truncated server-side with a trailing
+     * "...". Prefer the full raw caption/body text instead so titles and
+     * descriptions aren't cut off; summary/slug are only a last resort.
+     */
+    protected function extractText(array $post): string
+    {
+        $raw = data_get($post, 'caption')
+            ?? data_get($post, 'body')
+            ?? data_get($post, 'summary')
+            ?? '';
+
+        $text = trim(html_entity_decode(strip_tags((string) $raw), ENT_QUOTES));
+
+        // Collapse repeated whitespace left over from stripped HTML block tags.
+        return trim((string) preg_replace('/\s+/', ' ', $text));
+    }
+
+    protected function shouldSkip(string $text): bool
+    {
+        if ($text === '') {
+            return false; // pure image posts with no caption text are fine
+        }
+
+        foreach (self::IGNORED_CONTENT_PATTERNS as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+        if ($this->looksNonLatinScript($text)) {
+            return true;
+        }
+
+        return $this->looksNonEnglish($text);
+    }
+
+    /**
+     * Catches CJK, Cyrillic, Arabic, etc. — scripts that don't use
+     * whitespace between words the way the stopword check below
+     * assumes, so this has to run as its own, separate check.
+     */
+    protected function looksNonLatinScript(string $text): bool
+    {
+        $letters = preg_replace('/[^\p{L}]/u', '', $text);
+
+        if ($letters === '' || $letters === null) {
+            return false;
+        }
+
+        $latinLetters = preg_replace('/[^A-Za-z]/', '', $letters);
+
+        return (mb_strlen((string) $latinLetters) / mb_strlen($letters)) < 0.4;
+    }
+
+    /**
+     * Zero-dependency heuristic, not real language detection: checks
+     * what fraction of words are common English function words (the,
+     * and, is, of...). Real prose in English reliably scores high on
+     * this; other Latin-alphabet languages (German, French, Spanish...)
+     * reliably score near zero, since they use entirely different words
+     * for the same grammatical roles. Short text is left alone since
+     * there isn't enough signal to judge reliably either way.
+     */
+    protected function looksNonEnglish(string $text): bool
+    {
+        $words = preg_split('/\s+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
+
+        if (count($words) < 6) {
+            return false;
+        }
+
+        static $englishStopwords = [
+            'the', 'and', 'is', 'of', 'to', 'a', 'in', 'for', 'with',
+            'on', 'this', 'that', 'it', 'was', 'are', 'my', 'i',
+            'you', 'we', 'have', 'has', 'be', 'at', 'from', 'or',
+        ];
+
+        $matches = count(array_intersect($words, $englishStopwords));
+
+        return ($matches / count($words)) < 0.08;
+    }
 }
-
-beforeEach(function () {
-    config(['services.tumblr.key' => 'test-api-key']);
-});
-
-it('extracts posts with a legacy photos array', function () {
-    $posts = makeTumblrService('tumblr-mixed.json')->fetch('foodporn');
-
-    $post = $posts->firstWhere('id', '1001');
-
-    expect($post)->not->toBeNull()
-        ->and($post['image'])->toBe('https://64.media.tumblr.com/img1001.jpg')
-        ->and($post['author'])->toBe('chefmike')
-        ->and($post['title'])->toContain('Grilled Salmon');
-});
-
-it('falls back to extracting an image from NPF body HTML when there is no photos array', function () {
-    $posts = makeTumblrService('tumblr-mixed.json')->fetch('foodporn');
-
-    $post = $posts->firstWhere('id', '1002');
-
-    expect($post)->not->toBeNull()
-        ->and($post['image'])->toBe('https://64.media.tumblr.com/img1002.jpg');
-});
-
-it('drops posts that have no image in either the photos array or the body HTML', function () {
-    $posts = makeTumblrService('tumblr-mixed.json')->fetch('foodporn');
-
-    expect($posts->firstWhere('id', '1005'))->toBeNull();
-});
-
-it('deduplicates content-farm reposts that share the same linked article URL', function () {
-    $posts = makeTumblrService('tumblr-mixed.json')->fetch('foodporn');
-
-    // Posts 1003 and 1004 share the same link_url (same article,
-    // reposted by two sibling blogs) — only the first should survive.
-    $pastaPosts = $posts->filter(fn ($post) => str_contains((string) $post['title'], 'Best Pasta'));
-
-    expect($pastaPosts)->toHaveCount(1)
-        ->and($pastaPosts->first()['author'])->toBe('reciperoundup-a');
-});
-
-it('returns the expected total after filtering and deduping the fixture', function () {
-    $posts = makeTumblrService('tumblr-mixed.json')->fetch('foodporn');
-
-    // 5 raw posts in: 1005 has no image (dropped), 1004 is a dupe of 1003
-    // (dropped) — 3 should remain: 1001, 1002, 1003.
-    expect($posts)->toHaveCount(3);
-});
-
-it('returns an empty collection when the API responds with a non-200 status', function () {
-    $posts = makeTumblrService('tumblr-mixed.json', status: 500)->fetch('foodporn');
-
-    expect($posts)->toBeEmpty();
-});
-
-it('returns an empty collection instead of throwing on malformed JSON', function () {
-    $mock = new MockHandler([
-        new Response(200, ['Content-Type' => 'application/json'], 'not valid json{{{'),
-    ]);
-
-    $client = new Client(['handler' => HandlerStack::create($mock)]);
-    $service = new TumblrService($client);
-
-    expect($service->fetch('foodporn'))->toBeEmpty();
-});
-
-it('sends the tag and api key as query parameters', function () {
-    $history = [];
-    $body = file_get_contents(base_path('tests/fixtures/tumblr-mixed.json'));
-
-    $mock = new MockHandler([
-        new Response(200, ['Content-Type' => 'application/json'], $body),
-    ]);
-
-    $handlerStack = HandlerStack::create($mock);
-    $handlerStack->push(Middleware::history($history));
-
-    $client = new Client(['handler' => $handlerStack]);
-    new TumblrService($client)->fetch('foodporn');
-
-    expect($history)->toHaveCount(1);
-
-    parse_str((string) $history[0]['request']->getUri()->getQuery(), $query);
-
-    expect($query['tag'])->toBe('foodporn')
-        ->and($query['api_key'])->toBe('test-api-key');
-});

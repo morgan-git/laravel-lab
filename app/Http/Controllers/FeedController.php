@@ -44,23 +44,10 @@ class FeedController extends Controller
     /**
      * Active feed sources, keyed by id so the view can look up a post's
      * source via $sources[$post['feed_source_id']] instead of relying
-     * on eager-loaded relations or data_get() fallback chains. Cached
-     * separately from post content — the source list barely changes,
-     * so it gets a much longer TTL than post content does.
+     * on eager-loaded relations or data_get() fallback chains.
      */
     private function cachedActiveSources()
     {
-        $sources = Cache::remember(
-            'feed_active_sources',
-            now()->addHour(),
-            fn () => FeedSource::where('visible', true)
-                ->withCount('posts')
-                ->orderBy('provider')
-                ->orderBy('handle')
-                ->get()
-                ->toArray()
-        );
-
-        return collect($sources)->keyBy('id');
+        return FeedSource::cachedVisible()->keyBy('id');
     }
 }

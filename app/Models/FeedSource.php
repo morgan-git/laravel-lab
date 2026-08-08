@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 #[Fillable([
     'provider',
@@ -19,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class FeedSource extends Model
 {
     use HasFactory;
+
+    public const string VISIBLE_CACHE_KEY = 'feed_active_sources';
 
     protected $casts = [
         'active' => 'boolean',
@@ -38,5 +42,25 @@ class FeedSource extends Model
     public function scopeForProvider($query, string $provider)
     {
         return $query->where('provider', $provider);
+    }
+
+    /**
+     * Visible feed sources, cached for an hour since this list barely
+     * changes. Single source of truth used by FeedController (public feed
+     * dropdown), the nav's Feeds dropdown, and invalidated from
+     * FeedSourceController whenever an admin changes a source.
+     */
+    public static function cachedVisible(): Collection
+    {
+        return collect(Cache::remember(
+            self::VISIBLE_CACHE_KEY,
+            now()->addHour(),
+            fn () => static::where('visible', true)
+                ->withCount('posts')
+                ->orderBy('provider')
+                ->orderBy('handle')
+                ->get()
+                ->toArray()
+        ));
     }
 }
