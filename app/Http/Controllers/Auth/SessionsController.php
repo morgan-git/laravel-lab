@@ -41,7 +41,7 @@ class SessionsController extends Controller
         if (Auth::attempt($validated)) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/ideas')->with('success', 'Logged in successfully!');
+            return redirect()->intended('/')->with('success', 'Logged in successfully!');
         }
 
         return back()

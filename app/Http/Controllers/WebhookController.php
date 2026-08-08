@@ -46,15 +46,25 @@ class WebhookController extends Controller
             return response()->json(['type' => 1]);
         }
 
-        // Get the subreddit from the slash command options if provided
-        $subreddit = $request->input('data.options.0.value', 'memes');
+        // The slash command's option value — no longer assumes Reddit,
+        // this is looked up against any provider's handle. A handle is
+        // required: a truly topic-blind random pick across every
+        // provider/category doesn't produce a meaningful result, so we
+        // don't fall back to one.
+        $topic = $request->input('data.options.0.value');
 
-        $post = $selector->random('reddit', $subreddit);
+        if (! $topic) {
+            $log->update(['status' => 'failed']);
+
+            return $this->provider->respond('Please specify a source, e.g. "memes" or "foodporn".');
+        }
+
+        $post = $selector->randomForTopic($topic);
 
         if (! $post instanceof FeedPost) {
             $log->update(['status' => 'failed']);
 
-            return $this->provider->respond('No posts found for that subreddit.');
+            return $this->provider->respond("No posts found for \"{$topic}\".");
         }
 
         $content = "**{$post->title}**\n{$post->url}";

@@ -57,7 +57,25 @@
     @enderror
 </div>
 
-<div class="form-control mb-6">
+<div class="form-control mb-4">
+    <label class="label" for="topic">
+        <span class="label-text">Topic</span>
+        <span class="label-text-alt">user-facing category, e.g. "foodporn" — shared across providers</span>
+    </label>
+    <input
+        type="text"
+        name="topic"
+        id="topic"
+        class="input input-bordered"
+        value="{{ old('topic', $source->topic ?? '') }}"
+        required
+    >
+    @error('topic')
+        <span class="text-error text-sm mt-1">{{ $message }}</span>
+    @enderror
+</div>
+
+<div class="form-control mb-2">
     <label class="label cursor-pointer justify-start gap-3">
         <input
             type="checkbox"
@@ -67,5 +85,20 @@
             @checked(old('active', $source->active ?? true))
         >
         <span class="label-text">Active</span>
+        <span class="label-text-alt text-base-content/60">Sync new posts on schedule</span>
+    </label>
+</div>
+
+<div class="form-control mb-6">
+    <label class="label cursor-pointer justify-start gap-3">
+        <input
+            type="checkbox"
+            name="visible"
+            value="1"
+            class="checkbox"
+            @checked(old('visible', $source->visible ?? true))
+        >
+        <span class="label-text">Visible</span>
+        <span class="label-text-alt text-base-content/60">Show on the public feed</span>
     </label>
 </div>

@@ -10,17 +10,44 @@ beforeEach(function () {
     $this->publicKey = sodium_crypto_sign_publickey($keypair);
     $this->secretKey = sodium_crypto_sign_secretkey($keypair);
 
-    config(['services.discord.public_key' => bin2hex($this->publicKey)]);
+    config([
+        'services.discord.public_key' => bin2hex($this->publicKey),
+    ]);
 });
 
 function signedHeaders(string $secretKey, string $body): array
 {
     $timestamp = (string) time();
-    $signature = bin2hex(sodium_crypto_sign_detached($timestamp.$body, $secretKey));
+
+    $signature = bin2hex(
+        sodium_crypto_sign_detached($timestamp.$body, $secretKey)
+    );
 
     return [
         'X-Signature-Ed25519' => $signature,
         'X-Signature-Timestamp' => $timestamp,
+    ];
+}
+
+function discordRequestHeaders(array $headers): array
+{
+    return [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'],
+        'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp'],
+    ];
+}
+
+function feedPostPayload(): array
+{
+    return [
+        'external_id' => 'abc123',
+        'title' => 'A very good meme',
+        'url' => 'https://example.com/post/abc123',
+        'author' => 'some_author',
+        'image_url' => null,
+        'content' => 'meme content here',
+        'posted_at' => now(),
     ];
 }
 
@@ -61,7 +88,11 @@ it('logs an unauthorized status when signature verification fails', function () 
         $body
     );
 
-    expect(WebhookRequest::where('status', 'unauthorized')->exists())->toBeTrue();
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'unauthorized')
+            ->exists()
+    )->toBeTrue();
 });
 
 it('responds to a Discord ping with type 1', function () {
@@ -74,7 +105,7 @@ it('responds to a Discord ping with type 1', function () {
         [],
         [],
         [],
-        ['CONTENT_TYPE' => 'application/json', 'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'], 'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp']],
+        discordRequestHeaders($headers),
         $body
     );
 
@@ -82,7 +113,7 @@ it('responds to a Discord ping with type 1', function () {
         ->assertJson(['type' => 1]);
 });
 
-it('logs a webhook request row on every request, starting as pending', function () {
+it('logs a webhook request row and completes it for a valid ping', function () {
     $body = json_encode(['type' => 1]);
     $headers = signedHeaders($this->secretKey, $body);
 
@@ -92,43 +123,42 @@ it('logs a webhook request row on every request, starting as pending', function 
         [],
         [],
         [],
-        [
-            'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'],
-            'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp'],
-            'CONTENT_TYPE' => 'application/json',
-        ],
+        discordRequestHeaders($headers),
         $body
     );
 
-    // A row should exist for this request regardless of outcome, and
-    // since verification passed and it was a ping, it should end as
-    // something other than 'pending' by the time the response returns.
-    expect(WebhookRequest::where('provider', 'discord')->exists())->toBeTrue();
+    expect(
+        WebhookRequest::where('provider', 'discord')->count()
+    )->toBe(1);
+
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'pending')
+            ->count()
+    )->toBe(0);
 });
 
-it('logs success on a valid slash command interaction', function () {
-    $source = FeedSource::factory()->reddit('memes')->create();
-
-    $source->posts()->create([
-        'external_id' => 'abc123',
-        'title' => 'A very good meme',
-        'url' => 'https://old.reddit.com/r/memes/comments/abc123',
-        'author' => 'some_redditor',
-        'image_url' => null,
-        'content' => 'meme content here',
-        'posted_at' => now(),
+it('logs success when a valid topic command finds a post', function () {
+    $source = FeedSource::factory()->create([
+        'provider' => 'provider-a',
+        'handle' => 'memes',
+        'topic' => 'memes',
+        'visible' => true,
     ]);
+
+    $source->posts()->create(feedPostPayload());
 
     $body = json_encode([
         'type' => 2,
         'data' => [
             'name' => 'meme',
             'options' => [
-                ['name' => 'subreddit', 'value' => 'memes'],
+                ['name' => 'topic', 'value' => 'memes'],
             ],
         ],
         'member' => ['user' => ['id' => '123456789']],
     ]);
+
     $headers = signedHeaders($this->secretKey, $body);
 
     $response = $this->call(
@@ -137,17 +167,136 @@ it('logs success on a valid slash command interaction', function () {
         [],
         [],
         [],
-        [
-            'HTTP_X_SIGNATURE_ED25519' => $headers['X-Signature-Ed25519'],
-            'HTTP_X_SIGNATURE_TIMESTAMP' => $headers['X-Signature-Timestamp'],
-            'CONTENT_TYPE' => 'application/json',
-        ],
+        discordRequestHeaders($headers),
         $body
     );
 
     $response->assertStatus(200);
 
-    expect(WebhookRequest::where('provider', 'discord')
-        ->where('status', 'success')
-        ->exists())->toBeTrue();
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'success')
+            ->exists()
+    )->toBeTrue();
+});
+
+it('selects a post by topic without requiring the Discord command to know the provider', function () {
+    $source = FeedSource::factory()->create([
+        'provider' => 'provider-b',
+        'handle' => 'foodporn',
+        'topic' => 'foodporn',
+        'visible' => true,
+    ]);
+
+    $source->posts()->create([
+        'external_id' => 'food-123',
+        'title' => 'Something delicious',
+        'url' => 'https://example.com/food-123',
+        'author' => 'feed-user',
+        'image_url' => null,
+        'content' => 'food content',
+        'posted_at' => now(),
+    ]);
+
+    $body = json_encode([
+        'type' => 2,
+        'data' => [
+            'name' => 'feed',
+            'options' => [
+                ['name' => 'topic', 'value' => 'foodporn'],
+            ],
+        ],
+        'member' => ['user' => ['id' => '123456789']],
+    ]);
+
+    $headers = signedHeaders($this->secretKey, $body);
+
+    $response = $this->call(
+        'POST',
+        $this->endpoint,
+        [],
+        [],
+        [],
+        discordRequestHeaders($headers),
+        $body
+    );
+
+    $response->assertStatus(200);
+
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'success')
+            ->exists()
+    )->toBeTrue();
+});
+
+it('does not select posts from hidden sources', function () {
+    $source = FeedSource::factory()->create([
+        'provider' => 'provider-c',
+        'handle' => 'hidden-food',
+        'topic' => 'foodporn',
+        'visible' => false,
+    ]);
+
+    $source->posts()->create(feedPostPayload());
+
+    $body = json_encode([
+        'type' => 2,
+        'data' => [
+            'name' => 'feed',
+            'options' => [
+                ['name' => 'topic', 'value' => 'foodporn'],
+            ],
+        ],
+        'member' => ['user' => ['id' => '123456789']],
+    ]);
+
+    $headers = signedHeaders($this->secretKey, $body);
+
+    $this->call(
+        'POST',
+        $this->endpoint,
+        [],
+        [],
+        [],
+        discordRequestHeaders($headers),
+        $body
+    );
+
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'success')
+            ->exists()
+    )->toBeFalse();
+});
+
+it('logs a failed status when no visible source exists for the requested topic', function () {
+    $body = json_encode([
+        'type' => 2,
+        'data' => [
+            'name' => 'feed',
+            'options' => [
+                ['name' => 'topic', 'value' => 'does-not-exist'],
+            ],
+        ],
+        'member' => ['user' => ['id' => '123456789']],
+    ]);
+
+    $headers = signedHeaders($this->secretKey, $body);
+
+    $this->call(
+        'POST',
+        $this->endpoint,
+        [],
+        [],
+        [],
+        discordRequestHeaders($headers),
+        $body
+    );
+
+    expect(
+        WebhookRequest::where('provider', 'discord')
+            ->where('status', 'failed')
+            ->exists()
+    )->toBeTrue();
 });

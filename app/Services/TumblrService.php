@@ -7,13 +7,25 @@ namespace App\Services;
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class TumblrService implements FeedProvider
 {
     protected Client $client;
 
     protected string $apiKey;
+
+    /**
+     * Off-topic "thanks for the likes" / follow-spam style posts that
+     * sometimes get mistagged into content tags. Not exhaustive — just
+     * the common patterns worth auto-filtering.
+     */
+    private const array IGNORED_CONTENT_PATTERNS = [
+        '/thanks? (you )?for (the )?(likes?|follows?|reblogs?)/i',
+        '/follow for follow/i',
+        '/\bf4f\b/i',
+        '/check out my (blog|page)/i',
+        '/new followers?/i',
+    ];
 
     public function __construct(?Client $client = null)
     {
@@ -24,7 +36,7 @@ class TumblrService implements FeedProvider
         ]);
 
         // Put your consumer key in your .env file (e.g., TUMBLR_API_KEY=your_key_here)
-        $this->apiKey = config('services.tumblr.key', env('TUMBLR_API_KEY'));
+        $this->apiKey = config('services.tumblr.key');
     }
 
     /**
@@ -66,16 +78,21 @@ class TumblrService implements FeedProvider
                     return null;
                 }
 
-                $postUrl = data_get($post, 'post_url');
-                $summary = data_get($post, 'summary', data_get($post, 'slug', 'Food Post'));
+                $text = $this->extractText($post);
+
+                if ($this->shouldSkip($text)) {
+                    return null;
+                }
+
+                $title = $text !== '' ? $text : (data_get($post, 'slug') ?: 'Food Post');
 
                 return [
                     'id' => (string) data_get($post, 'id'),
-                    'title' => Str::limit($summary, 120),
-                    'url' => $postUrl,
+                    'title' => $title,
+                    'url' => data_get($post, 'post_url'),
                     'author' => data_get($post, 'blog_name', 'tumblr'),
                     'updated' => date('Y-m-d H:i:s', data_get($post, 'timestamp', time())),
-                    'content' => $summary,
+                    'content' => $text,
                     'image' => $imageUrl,
                     // Not persisted — used only to catch content-farm networks
                     // that cross-post the same article across sibling blogs
@@ -109,5 +126,57 @@ class TumblrService implements FeedProvider
         preg_match('/<img[^>]+src=["\']([^"\']+)["\']/', $html, $matches);
 
         return $matches[1] ?? null;
+    }
+
+    /**
+     * Tumblr's 'summary' field is truncated server-side with a trailing
+     * "...". Prefer the full raw caption/body text instead so titles and
+     * descriptions aren't cut off; summary/slug are only a last resort.
+     */
+    protected function extractText(array $post): string
+    {
+        $raw = data_get($post, 'caption')
+            ?? data_get($post, 'body')
+            ?? data_get($post, 'summary')
+            ?? '';
+
+        $text = trim(html_entity_decode(strip_tags((string) $raw), ENT_QUOTES));
+
+        // Collapse repeated whitespace left over from stripped HTML block tags.
+        return trim((string) preg_replace('/\s+/', ' ', $text));
+    }
+
+    protected function shouldSkip(string $text): bool
+    {
+        if ($text === '') {
+            return false; // pure image posts with no caption text are fine
+        }
+
+        foreach (self::IGNORED_CONTENT_PATTERNS as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+
+        return $this->looksNonLatinScript($text);
+    }
+
+    /**
+     * Crude heuristic, not real language detection: flags text that's
+     * mostly non-Latin-alphabet characters (CJK, Cyrillic, Arabic, etc).
+     * Won't catch other Latin-alphabet languages (French, Spanish...) —
+     * that would need a real language-detection library if it matters.
+     */
+    protected function looksNonLatinScript(string $text): bool
+    {
+        $letters = preg_replace('/[^\p{L}]/u', '', $text);
+
+        if ($letters === '' || $letters === null) {
+            return false;
+        }
+
+        $latinLetters = preg_replace('/[^A-Za-z]/', '', $letters);
+
+        return (mb_strlen((string) $latinLetters) / mb_strlen($letters)) < 0.4;
     }
 }
