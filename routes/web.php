@@ -24,7 +24,6 @@ Route::middleware('guest')->group(function (): void {
 
 Route::delete('/logout', [SessionsController::class, 'destroy'])->middleware('auth');
 
-Route::view('/contact', 'contact');
 Route::view('/about', 'about');
 
 Route::get('/admin', fn () => 'Private admin area demo')->can('view-admin');
