@@ -59,12 +59,14 @@ class FeedSource extends Model
             self::VISIBLE_CACHE_KEY,
             now()->addHour(),
             fn () => static::where('visible', true)
+                ->with('topic')
                 ->withCount('posts')
                 ->orderBy('provider')
                 ->orderBy('handle')
                 ->get()
                 ->toArray()
         ));
+
     }
 
     public function topic(): BelongsTo

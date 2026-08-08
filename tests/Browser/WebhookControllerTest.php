@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\FeedPost;
 use App\Models\FeedSource;
 use App\Models\WebhookRequest;
+use App\Services\FeedSelector;
 
 beforeEach(function () {
     $this->endpoint = '/api/webhook/discord';
@@ -296,4 +298,23 @@ it('logs a failed status when no visible source exists for the requested topic',
             ->where('status', 'failed')
             ->exists()
     )->toBeTrue();
+});
+
+it('can select a post from any visible provider for the same topic', function () {
+    FeedSource::factory()->topic('foodporn')->create([
+        'provider' => 'provider-a',
+        'handle' => 'foodporn-a',
+        'visible' => true,
+    ])->posts()->create(feedPostPayload());
+
+    FeedSource::factory()->topic('foodporn')->create([
+        'provider' => 'provider-b',
+        'handle' => 'foodporn-b',
+        'visible' => true,
+    ])->posts()->create(feedPostPayload());
+
+    $post = app(FeedSelector::class)->randomForTopic('foodporn');
+
+    expect($post)->toBeInstanceOf(FeedPost::class);
+    expect($post->source->topic->name)->toBe('foodporn');
 });
