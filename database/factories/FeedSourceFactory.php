@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\FeedSource;
+use App\Models\Topic;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class FeedSourceFactory extends Factory
@@ -18,7 +19,7 @@ class FeedSourceFactory extends Factory
             'active' => true,
             'last_fetched_at' => null,
             'visible' => true,
-            'topic' => $this->faker->word(),
+            'topic_id' => Topic::factory(), // Automatically creates a topic in memory
         ];
     }
 
@@ -26,6 +27,20 @@ class FeedSourceFactory extends Factory
     {
         return $this->state(fn () => [
             'active' => false,
+        ]);
+    }
+
+    public function hidden(): static
+    {
+        return $this->state(fn () => [
+            'visible' => false,
+        ]);
+    }
+
+    public function topic(string $name): static
+    {
+        return $this->state(fn () => [
+            'topic_id' => Topic::firstOrCreate(['name' => $name])->id,
         ]);
     }
 }

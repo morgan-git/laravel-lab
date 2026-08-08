@@ -102,7 +102,7 @@
                             </td>
                             <td x-text="source.handle"></td>
                             <td x-text="source.display_name"></td>
-                            <td x-text="source.topic"></td>
+                            <td x-text="source.topic?.name ?? '—'"></td>
                             <td>
                                 <span
                                     x-text="source.active ? 'Active' : 'Paused'"

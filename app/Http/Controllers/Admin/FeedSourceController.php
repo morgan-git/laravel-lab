@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncFeedSource;
 use App\Models\FeedSource;
+use App\Models\Topic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -30,7 +31,8 @@ class FeedSourceController extends Controller
 
     public function index(): View
     {
-        $sources = FeedSource::withCount('posts')
+        $sources = FeedSource::with('topic')
+            ->withCount('posts')
             ->orderBy('provider')
             ->orderBy('handle')
             ->get();
@@ -44,12 +46,15 @@ class FeedSourceController extends Controller
     {
         return view('admin.feed-sources.create', [
             'providers' => self::AVAILABLE_PROVIDERS,
+            'topics' => Topic::orderBy('name')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateSource($request);
+        $validated['topic_id'] = $this->resolveTopicId($request);
+        unset($validated['new_topic']);
 
         FeedSource::create($validated);
 
@@ -65,12 +70,15 @@ class FeedSourceController extends Controller
         return view('admin.feed-sources.edit', [
             'source' => $feedSource,
             'providers' => self::AVAILABLE_PROVIDERS,
+            'topics' => Topic::orderBy('name')->get(),
         ]);
     }
 
     public function update(Request $request, FeedSource $feedSource): RedirectResponse
     {
         $validated = $this->validateSource($request, $feedSource);
+        $validated['topic_id'] = $this->resolveTopicId($request);
+        unset($validated['new_topic']);
 
         $feedSource->update($validated);
 
@@ -148,9 +156,25 @@ class FeedSourceController extends Controller
                     ->ignore($ignoring?->id),
             ],
             'display_name' => ['required', 'string', 'max:255'],
-            'topic' => ['required', 'string', 'max:255'],
+            'topic_id' => ['nullable', 'exists:topics,id'],
+            'new_topic' => ['nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'visible' => ['sometimes', 'boolean'],
         ]);
+    }
+
+    /**
+     * Either use the topic picked from the dropdown, or — if the user
+     * typed a brand-new topic name instead — find or create it. Keeps
+     * topics normalized (no free-text typos) without needing a separate
+     * topics-management page just to add the first few.
+     */
+    private function resolveTopicId(Request $request): ?int
+    {
+        if ($request->filled('new_topic')) {
+            return Topic::firstOrCreate(['name' => trim((string) $request->input('new_topic'))])->id;
+        }
+
+        return $request->input('topic_id') ?: null;
     }
 }

@@ -28,11 +28,12 @@ class FeedSelector
      * "foodporn" tag). Respects `visible`, same rule the public feed
      * page follows.
      */
-    public function randomForTopic(string $topic): ?FeedPost
+    public function randomForTopic(string $topicName): ?FeedPost
     {
         return FeedPost::whereHas(
             'source',
-            fn ($query) => $query->where('topic', $topic)->where('visible', true)
+            fn ($query) => $query->where('visible', true)
+                ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topicName))
         )->inRandomOrder()->first();
     }
 }

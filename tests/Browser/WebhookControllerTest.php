@@ -139,10 +139,9 @@ it('logs a webhook request row and completes it for a valid ping', function () {
 });
 
 it('logs success when a valid topic command finds a post', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('memes')->create([
         'provider' => 'provider-a',
         'handle' => 'memes',
-        'topic' => 'memes',
         'visible' => true,
     ]);
 
@@ -181,10 +180,9 @@ it('logs success when a valid topic command finds a post', function () {
 });
 
 it('selects a post by topic without requiring the Discord command to know the provider', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('foodporn')->create([
         'provider' => 'provider-b',
         'handle' => 'foodporn',
-        'topic' => 'foodporn',
         'visible' => true,
     ]);
 
@@ -231,10 +229,9 @@ it('selects a post by topic without requiring the Discord command to know the pr
 });
 
 it('does not select posts from hidden sources', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('foodporn')->create([
         'provider' => 'provider-c',
         'handle' => 'hidden-food',
-        'topic' => 'foodporn',
         'visible' => false,
     ]);
 
