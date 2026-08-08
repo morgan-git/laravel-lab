@@ -20,6 +20,8 @@ class FeedController extends Controller
             $postsCacheKey,
             now()->addMinutes(30),
             fn () => FeedPost::whereHas('source', function ($query) use ($provider, $handle) {
+                $query->where('visible', true);
+
                 if ($provider) {
                     $query->where('provider', $provider);
                 }

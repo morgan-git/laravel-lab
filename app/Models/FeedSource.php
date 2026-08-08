@@ -15,14 +15,16 @@ use Illuminate\Support\Facades\Cache;
     'provider',
     'handle',
     'display_name',
+    'topic',
     'active',
+    'visible',
     'last_fetched_at',
 ])]
 class FeedSource extends Model
 {
     use HasFactory;
 
-    public const string VISIBLE_CACHE_KEY = 'feed_active_sources';
+    public const string VISIBLE_CACHE_KEY = 'feed_visible_sources';
 
     protected $casts = [
         'active' => 'boolean',
