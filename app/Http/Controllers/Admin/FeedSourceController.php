@@ -156,8 +156,8 @@ class FeedSourceController extends Controller
                     ->ignore($ignoring?->id),
             ],
             'display_name' => ['required', 'string', 'max:255'],
-            'topic_id' => ['nullable', 'exists:topics,id'],
-            'new_topic' => ['nullable', 'string', 'max:255'],
+            'topic_id' => ['required_without:new_topic', 'nullable', 'exists:topics,id'],
+            'new_topic' => ['required_without:topic_id', 'nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'visible' => ['sometimes', 'boolean'],
         ]);

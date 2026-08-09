@@ -32,10 +32,10 @@
                 <li>
                     <span>Feeds</span>
                     <ul class="p-2 z-500">
-                        @foreach ($navFeedSources as $source)
+                        @foreach ($navTopics as $topic)
                             <li>
-                                <a href="{{ route('feed.index', ['provider' => $source['provider'], 'handle' => $source['handle']]) }}">
-                                    {{ ucfirst($source['provider']) }} — {{ $source['display_name'] }}
+                                <a href="{{ route('feed.index', ['topic' => $topic['name']]) }}">
+                                    {{ ucfirst($topic['name']) }}
                                 </a>
                             </li>
                         @endforeach
@@ -78,14 +78,14 @@
                 <details name="nav-dropdown">
                     <summary>Feeds</summary>
                     <ul class="p-2 w-56 rounded-box shadow z-100">
-                        @forelse ($navFeedSources as $source)
+                        @forelse ($navTopics as $topic)
                             <li>
-                                <a href="{{ route('feed.index', ['provider' => $source['provider'], 'handle' => $source['handle']]) }}">
-                                    {{ ucfirst($source['provider']) }} — {{ $source['display_name'] }}
+                                <a href="{{ route('feed.index', ['topic' => $topic['name']]) }}">
+                                    {{ ucfirst($topic['name']) }}
                                 </a>
                             </li>
                         @empty
-                            <li><span class="text-base-content/50">No sources yet</span></li>
+                            <li><span class="text-base-content/50">No topics yet</span></li>
                         @endforelse
                     </ul>
                 </details>

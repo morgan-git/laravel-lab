@@ -63,15 +63,16 @@
         <span class="label-text-alt">user-facing category, shared across providers</span>
     </label>
     <select name="topic_id" id="topic_id" class="select select-bordered">
-        <option value="">— None —</option>
-        @foreach ($topics as $topic)
+        @forelse ($topics as $topic)
             <option
                 value="{{ $topic->id }}"
                 @selected(old('topic_id', $source->topic_id ?? null) == $topic->id)
             >
                 {{ $topic->name }}
             </option>
-        @endforeach
+        @empty
+            <option value="" disabled selected>No topics yet — type one below</option>
+        @endforelse
     </select>
     @error('topic_id')
         <span class="text-error text-sm mt-1">{{ $message }}</span>
