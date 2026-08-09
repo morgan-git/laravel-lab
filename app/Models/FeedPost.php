@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'image_url',
     'content',
     'posted_at',
+    'dedupe_key',
 ])]
 class FeedPost extends Model
 {
