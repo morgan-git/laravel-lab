@@ -20,7 +20,7 @@ class TumblrService implements FeedProvider
      * the common patterns worth auto-filtering.
      */
     private const array IGNORED_CONTENT_PATTERNS = [
-        '/thanks? (you )?for (the )?(likes?|follows?|reblogs?)/i',
+        '/thanks?(?:\s+\w+){0,4}?\s+for\s+(the\s+)?(likes?|follows?|reblogs?)/i',
         '/follow for follow/i',
         '/\bf4f\b/i',
         '/check out my (blog|page)/i',

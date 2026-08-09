@@ -6,7 +6,7 @@ namespace App\Providers;
 
 use App\Contracts\FeedProvider;
 use App\Contracts\WebhookProvider;
-use App\Models\FeedSource;
+use App\Models\Topic;
 use App\Models\User;
 use App\Services\BlueSkyService;
 use App\Services\RedditService;
@@ -59,7 +59,7 @@ class AppServiceProvider extends ServiceProvider
         Model::automaticallyEagerLoadRelationships();
 
         View::composer('components.nav', function ($view) {
-            $view->with('navFeedSources', FeedSource::cachedVisible());
+            $view->with('navTopics', Topic::cachedVisible());
         });
     }
 }

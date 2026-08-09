@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\FeedPost;
 use App\Models\FeedSource;
 use App\Models\WebhookRequest;
+use App\Services\FeedSelector;
 
 beforeEach(function () {
     $this->endpoint = '/api/webhook/discord';
@@ -139,10 +141,9 @@ it('logs a webhook request row and completes it for a valid ping', function () {
 });
 
 it('logs success when a valid topic command finds a post', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('memes')->create([
         'provider' => 'provider-a',
         'handle' => 'memes',
-        'topic' => 'memes',
         'visible' => true,
     ]);
 
@@ -181,10 +182,9 @@ it('logs success when a valid topic command finds a post', function () {
 });
 
 it('selects a post by topic without requiring the Discord command to know the provider', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('foodporn')->create([
         'provider' => 'provider-b',
         'handle' => 'foodporn',
-        'topic' => 'foodporn',
         'visible' => true,
     ]);
 
@@ -231,10 +231,9 @@ it('selects a post by topic without requiring the Discord command to know the pr
 });
 
 it('does not select posts from hidden sources', function () {
-    $source = FeedSource::factory()->create([
+    $source = FeedSource::factory()->topic('foodporn')->create([
         'provider' => 'provider-c',
         'handle' => 'hidden-food',
-        'topic' => 'foodporn',
         'visible' => false,
     ]);
 
@@ -299,4 +298,23 @@ it('logs a failed status when no visible source exists for the requested topic',
             ->where('status', 'failed')
             ->exists()
     )->toBeTrue();
+});
+
+it('can select a post from any visible provider for the same topic', function () {
+    FeedSource::factory()->topic('foodporn')->create([
+        'provider' => 'provider-a',
+        'handle' => 'foodporn-a',
+        'visible' => true,
+    ])->posts()->create(feedPostPayload());
+
+    FeedSource::factory()->topic('foodporn')->create([
+        'provider' => 'provider-b',
+        'handle' => 'foodporn-b',
+        'visible' => true,
+    ])->posts()->create(feedPostPayload());
+
+    $post = app(FeedSelector::class)->randomForTopic('foodporn');
+
+    expect($post)->toBeInstanceOf(FeedPost::class);
+    expect($post->source->topic->name)->toBe('foodporn');
 });

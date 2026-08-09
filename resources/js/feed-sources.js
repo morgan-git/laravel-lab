@@ -17,6 +17,11 @@ window.feedSourcesTable = (initialSources) => ({
             let valueA = a[this.sortColumn];
             let valueB = b[this.sortColumn];
 
+            if (this.sortColumn === 'topic') {
+                valueA = a.topic?.name ?? '';
+                valueB = b.topic?.name ?? '';
+            }
+
             if (typeof valueA === 'boolean' && typeof valueB === 'boolean') {
                 return this.sortDirection === 'asc'
                     ? Number(valueA) - Number(valueB)

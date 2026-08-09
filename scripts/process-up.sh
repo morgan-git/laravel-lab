@@ -27,7 +27,7 @@ start_process() {
     fi
 }
 
-start_process "Queue Worker" "queue:work" "php artisan queue:work > /dev/null 2>&1 &"
+start_process "Queue Worker" "queue:listen" "php artisan queue:listen > /dev/null 2>&1 &"
 start_process "Scheduler" "schedule:work" "php artisan schedule:work > /dev/null 2>&1 &"
 start_process "Vite" "vite" "npm run dev > /dev/null 2>&1 &"
 
@@ -47,10 +47,3 @@ else
 fi
 
 disown -a
-
-
-#Usage:
-
-#./scripts/process-up.sh          # normal behavior — skip anything already running
-#./scripts/process-up.sh -r       # kill everything managed, then start fresh
-#./scripts/process-up.sh --restart   # same thing, long form

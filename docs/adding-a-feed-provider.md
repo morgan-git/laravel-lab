@@ -181,7 +181,7 @@ public function randomForTopic(string $topic): ?FeedPost
     return FeedPost::whereHas(
         'source',
         fn ($query) => $query
-            ->where('topic', $topic)
+           ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topicName))
             ->where('visible', true)
     )->inRandomOrder()->first();
 }

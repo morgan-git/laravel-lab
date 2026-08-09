@@ -3,7 +3,9 @@
 
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
         <h1 class="text-2xl font-bold capitalize">
-            @if ($provider && $handle)
+            @if ($topic)
+                {{ $topic }}
+            @elseif ($provider && $handle)
                 {{ $provider }} — {{ $handle }}
             @else
                 Content Hub

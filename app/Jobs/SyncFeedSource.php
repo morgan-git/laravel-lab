@@ -64,6 +64,21 @@ class SyncFeedSource implements ShouldQueue
             ));
 
         $newPosts->each(function (array $post) {
+            $dedupeKey = $post['dedupe_key'] ?? null;
+
+            // A dedupe_key (currently only Tumblr provides one) that's
+            // already saved for this source means this is the same
+            // content re-surfacing from a different fetch batch — a
+            // content-farm network cross-posting the same article across
+            // sibling blogs at staggered times, for example. Skip it
+            // rather than saving a duplicate row.
+            if ($dedupeKey && FeedPost::where('feed_source_id', $this->source->id)
+                ->where('dedupe_key', $dedupeKey)
+                ->exists()
+            ) {
+                return;
+            }
+
             FeedPost::updateOrCreate(
                 [
                     'feed_source_id' => $this->source->id,
@@ -76,6 +91,7 @@ class SyncFeedSource implements ShouldQueue
                     'image_url' => $post['image'],
                     'content' => $post['content'],
                     'posted_at' => $post['updated'],
+                    'dedupe_key' => $dedupeKey,
                 ]
             );
         });

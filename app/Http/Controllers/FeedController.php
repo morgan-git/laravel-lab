@@ -6,21 +6,30 @@ namespace App\Http\Controllers;
 
 use App\Models\FeedPost;
 use App\Models\FeedSource;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class FeedController extends Controller
 {
-    public function index(?string $provider = null, ?string $handle = null)
+    public function index(Request $request, ?string $provider = null, ?string $handle = null)
     {
+        $topic = $request->query('topic');
         $sources = $this->cachedActiveSources();
 
-        $postsCacheKey = 'feed_posts_'.($provider ?? 'all').'_'.($handle ?? 'all');
+        $postsCacheKey = $topic
+            ? "feed_posts_topic_{$topic}"
+            : 'feed_posts_'.($provider ?? 'all').'_'.($handle ?? 'all');
 
         $posts = Cache::remember(
             $postsCacheKey,
             now()->addMinutes(30),
-            fn () => FeedPost::whereHas('source', function ($query) use ($provider, $handle) {
-                $query->where('visible', true);
+            fn () => FeedPost::whereHas('source', function ($query) use ($provider, $handle, $topic) {
+                if ($topic) {
+                    $query->where('visible', true)
+                        ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topic));
+
+                    return;
+                }
 
                 if ($provider) {
                     $query->where('provider', $provider);
@@ -39,6 +48,7 @@ class FeedController extends Controller
             'posts' => collect($posts),
             'provider' => $provider,
             'handle' => $handle,
+            'topic' => $topic,
             'sources' => $sources,
         ]);
     }

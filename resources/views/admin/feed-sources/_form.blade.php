@@ -58,21 +58,37 @@
 </div>
 
 <div class="form-control mb-4">
-    <label class="label" for="topic">
+    <label class="label" for="topic_id">
         <span class="label-text">Topic</span>
-        <span class="label-text-alt">user-facing category, e.g. "foodporn" — shared across providers</span>
+        <span class="label-text-alt">user-facing category, shared across providers</span>
+    </label>
+    <select name="topic_id" id="topic_id" class="select select-bordered">
+        @forelse ($topics as $topic)
+            <option
+                value="{{ $topic->id }}"
+                @selected(old('topic_id', $source->topic_id ?? null) == $topic->id)
+            >
+                {{ $topic->name }}
+            </option>
+        @empty
+            <option value="" disabled selected>No topics yet — type one below</option>
+        @endforelse
+    </select>
+    @error('topic_id')
+        <span class="text-error text-sm mt-1">{{ $message }}</span>
+    @enderror
+
+    <label class="label mt-2" for="new_topic">
+        <span class="label-text-alt">Or type a new topic name (overrides the dropdown above)</span>
     </label>
     <input
         type="text"
-        name="topic"
-        id="topic"
-        class="input input-bordered"
-        value="{{ old('topic', $source->topic ?? '') }}"
-        required
+        name="new_topic"
+        id="new_topic"
+        class="input input-bordered input-sm"
+        value="{{ old('new_topic') }}"
+        placeholder="e.g. foodporn"
     >
-    @error('topic')
-        <span class="text-error text-sm mt-1">{{ $message }}</span>
-    @enderror
 </div>
 
 <div class="form-control mb-2">
