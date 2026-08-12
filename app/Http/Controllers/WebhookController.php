@@ -51,13 +51,7 @@ class WebhookController extends Controller
         // required: a truly topic-blind random pick across every
         // provider/category doesn't produce a meaningful result, so we
         // don't fall back to one.
-        $topic = $request->input('data.options.0.value');
-
-        if (! $topic) {
-            $log->update(['status' => 'failed']);
-
-            return $this->provider->respond('Please specify a source, e.g. "memes" or "foodporn".');
-        }
+        $topic = $request->input('data.name');
 
         $post = $selector->randomForTopic($topic);
 

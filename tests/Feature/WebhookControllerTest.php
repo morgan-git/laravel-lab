@@ -140,7 +140,7 @@ it('logs a webhook request row and completes it for a valid ping', function () {
     )->toBe(0);
 });
 
-it('logs success when a valid topic command finds a post', function () {
+it('logs success when a topic command finds a post', function () {
     $source = FeedSource::factory()->topic('memes')->create([
         'provider' => 'provider-a',
         'handle' => 'memes',
@@ -152,10 +152,7 @@ it('logs success when a valid topic command finds a post', function () {
     $body = json_encode([
         'type' => 2,
         'data' => [
-            'name' => 'meme',
-            'options' => [
-                ['name' => 'topic', 'value' => 'memes'],
-            ],
+            'name' => 'memes',
         ],
         'member' => ['user' => ['id' => '123456789']],
     ]);
@@ -201,10 +198,7 @@ it('selects a post by topic without requiring the Discord command to know the pr
     $body = json_encode([
         'type' => 2,
         'data' => [
-            'name' => 'feed',
-            'options' => [
-                ['name' => 'topic', 'value' => 'foodporn'],
-            ],
+            'name' => 'foodporn',
         ],
         'member' => ['user' => ['id' => '123456789']],
     ]);
@@ -242,10 +236,7 @@ it('does not select posts from hidden sources', function () {
     $body = json_encode([
         'type' => 2,
         'data' => [
-            'name' => 'feed',
-            'options' => [
-                ['name' => 'topic', 'value' => 'foodporn'],
-            ],
+            'name' => 'foodporn',
         ],
         'member' => ['user' => ['id' => '123456789']],
     ]);
@@ -273,10 +264,7 @@ it('logs a failed status when no visible source exists for the requested topic',
     $body = json_encode([
         'type' => 2,
         'data' => [
-            'name' => 'feed',
-            'options' => [
-                ['name' => 'topic', 'value' => 'does-not-exist'],
-            ],
+            'name' => 'does-not-exist',
         ],
         'member' => ['user' => ['id' => '123456789']],
     ]);
