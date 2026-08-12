@@ -169,7 +169,10 @@ it('shows the edit form for a source', function () {
 
 it('updates a feed source and clears the sources cache', function () {
     Cache::put(FeedSource::VISIBLE_CACHE_KEY, ['stale' => true]);
-    $source = FeedSource::factory()->create(['display_name' => 'Old Name']);
+    $source = FeedSource::factory()->create([
+        'provider' => 'reddit',
+        'display_name' => 'Old Name',
+    ]);
     $topic = Topic::factory()->create();
 
     $response = $this->actingAs(actingAsAdmin())->put(route('admin.feed-sources.update', $source), [
@@ -180,6 +183,7 @@ it('updates a feed source and clears the sources cache', function () {
     ]);
 
     $response->assertRedirect(route('admin.feed-sources.index'));
+
     $this->assertDatabaseHas('feed_sources', ['id' => $source->id, 'display_name' => 'New Name']);
     expect(Cache::get(FeedSource::VISIBLE_CACHE_KEY))->toBeNull();
 });
