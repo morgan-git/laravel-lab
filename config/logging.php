@@ -128,6 +128,11 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+        'feed-sync' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/feed-sync.log'),
+            'level' => 'debug',
+        ],
 
     ],
 

@@ -7,7 +7,6 @@ namespace App\Jobs;
 use App\Contracts\FeedProvider;
 use App\Models\FeedPost;
 use App\Models\FeedSource;
-use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
@@ -56,14 +55,21 @@ class SyncFeedSource implements ShouldQueue
             return;
         }
 
-        $lastFetched = $this->source->last_fetched_at;
+        // NOTE: we intentionally do NOT filter posts by last_fetched_at here.
+        // A post's own `updated` timestamp can lag behind when it actually
+        // surfaces in a provider's feed (reblog timing, blog activity
+        // re-bumping older content, etc.), so comparing it against the
+        // wall-clock time of a *previous* run can permanently drop a post
+        // that was never actually saved. Each provider only returns a
+        // small page of recent posts per run, and updateOrCreate() below
+        // (keyed on feed_source_id + external_id) is already idempotent,
+        // so re-processing the same posts every run is cheap and safe.
+        // Cross-blog repost duplicates are instead caught via dedupe_key.
+        $created = 0;
+        $updated = 0;
+        $skippedDedupe = 0;
 
-        $newPosts = $posts
-            ->when($lastFetched, fn ($collection) => $collection->filter(
-                fn ($post) => Carbon::parse($post['updated'])->isAfter($lastFetched)
-            ));
-
-        $newPosts->each(function (array $post) {
+        $posts->each(function (array $post) use (&$created, &$updated, &$skippedDedupe) {
             $dedupeKey = $post['dedupe_key'] ?? null;
 
             // A dedupe_key (currently only Tumblr provides one) that's
@@ -76,10 +82,12 @@ class SyncFeedSource implements ShouldQueue
                 ->where('dedupe_key', $dedupeKey)
                 ->exists()
             ) {
+                $skippedDedupe++;
+
                 return;
             }
 
-            FeedPost::updateOrCreate(
+            $feedPost = FeedPost::updateOrCreate(
                 [
                     'feed_source_id' => $this->source->id,
                     'external_id' => $post['id'],
@@ -94,9 +102,16 @@ class SyncFeedSource implements ShouldQueue
                     'dedupe_key' => $dedupeKey,
                 ]
             );
+
+            // wasRecentlyCreated tells us whether this was a genuine new
+            // insert vs. an existing row that just got its columns
+            // refreshed — the fetched/new counts logged below used to be
+            // meaningless (new === fetched, always) before this tracking
+            // was added.
+            $feedPost->wasRecentlyCreated ? $created++ : $updated++;
         });
 
-        if ($newPosts->isNotEmpty()) {
+        if ($created > 0) {
             $this->source->update([
                 'last_fetched_at' => now(),
             ]);
@@ -110,7 +125,9 @@ class SyncFeedSource implements ShouldQueue
             'provider' => $this->source->provider,
             'handle' => $this->source->handle,
             'fetched' => $posts->count(),
-            'new' => $newPosts->count(),
+            'created' => $created,
+            'updated' => $updated,
+            'skipped_dedupe' => $skippedDedupe,
         ]);
     }
 }

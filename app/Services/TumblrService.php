@@ -35,7 +35,6 @@ class TumblrService implements FeedProvider
             ],
         ]);
 
-        // Put your consumer key in your .env file (e.g., TUMBLR_API_KEY=your_key_here)
         $this->apiKey = config('services.tumblr.key');
     }
 
@@ -49,7 +48,7 @@ class TumblrService implements FeedProvider
                 'query' => [
                     'tag' => trim($tag, '#/'),
                     'api_key' => $this->apiKey,
-                    'limit' => 20, // Tumblr's max per request for tagged items
+                    'limit' => 20,
                 ],
             ]);
 
@@ -84,7 +83,13 @@ class TumblrService implements FeedProvider
                     return null;
                 }
 
-                $title = $text !== '' ? $text : (data_get($post, 'slug') ?: 'Food Post');
+                $rawTitle = $text !== '' ? $text : (data_get($post, 'slug') ?: 'Food Post');
+
+                // Strip out dynamic content-farm prefixes for a clean title
+                $title = trim(preg_replace('/^(Weeknight dinner solved:\s*|This one\'s a keeper:\s*)/i', '', $rawTitle));
+                if ($title === '') {
+                    $title = 'Food Post';
+                }
 
                 return [
                     'id' => (string) data_get($post, 'id'),
@@ -94,11 +99,7 @@ class TumblrService implements FeedProvider
                     'updated' => date('Y-m-d H:i:s', data_get($post, 'timestamp', time())),
                     'content' => $text,
                     'image' => $imageUrl,
-                    // Not persisted — used only to catch content-farm networks
-                    // that cross-post the same article across sibling blogs
-                    // with different post IDs. Falls back to the image URL for
-                    // native photo posts that have no external link.
-                    'dedupe_key' => data_get($post, 'link_url') ?: $imageUrl,
+                    'dedupe_key' => $this->generateDedupeKey($text, $imageUrl),
                 ];
             })
             ->filter()
@@ -106,13 +107,40 @@ class TumblrService implements FeedProvider
             ->values();
     }
 
-    /**
-     * Legacy "photo" type posts have a top-level 'photos' array. Many
-     * current posts use Tumblr's newer NPF format instead, where images
-     * are embedded as <img> tags inside the 'body' (or 'content') HTML
-     * and there's no top-level 'photos' array at all — so we fall back
-     * to pulling the first <img src> out of the raw HTML.
-     */
+    protected function generateDedupeKey(string $text, ?string $imageUrl): string
+    {
+        if ($text === '') {
+            return $this->normalizeUrl($imageUrl) ?? uniqid();
+        }
+
+        $clean = preg_replace('/^(Weeknight dinner solved:\s*|This one\'s a keeper:\s*)/i', '', $text);
+        $clean = preg_replace('/(You might also love:.*)$/i', '', (string) $clean);
+
+        $clean = mb_strtolower((string) preg_replace('/[^\p{L}\p{N}\s]/u', '', (string) $clean));
+
+        $words = preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY);
+        $words = array_diff($words, ['you', 'might', 'also', 'love', 'recipe', 'this', 'ones', 'a', 'keeper', 'weeknight', 'dinner', 'solved']);
+
+        sort($words);
+
+        if (count($words) >= 3) {
+            return md5(implode(' ', $words));
+        }
+
+        return md5($clean);
+    }
+
+    protected function normalizeUrl(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        $clean = strtok($url, '?#');
+
+        return strtolower(rtrim((string) $clean, '/'));
+    }
+
     protected function extractImage(array $post): ?string
     {
         $legacyImage = data_get($post, 'photos.0.original_size.url');
@@ -128,11 +156,6 @@ class TumblrService implements FeedProvider
         return $matches[1] ?? null;
     }
 
-    /**
-     * Tumblr's 'summary' field is truncated server-side with a trailing
-     * "...". Prefer the full raw caption/body text instead so titles and
-     * descriptions aren't cut off; summary/slug are only a last resort.
-     */
     protected function extractText(array $post): string
     {
         $raw = data_get($post, 'caption')
@@ -142,14 +165,13 @@ class TumblrService implements FeedProvider
 
         $text = trim(html_entity_decode(strip_tags((string) $raw), ENT_QUOTES));
 
-        // Collapse repeated whitespace left over from stripped HTML block tags.
         return trim((string) preg_replace('/\s+/', ' ', $text));
     }
 
     protected function shouldSkip(string $text): bool
     {
         if ($text === '') {
-            return false; // pure image posts with no caption text are fine
+            return false;
         }
 
         foreach (self::IGNORED_CONTENT_PATTERNS as $pattern) {
@@ -164,11 +186,6 @@ class TumblrService implements FeedProvider
         return $this->looksNonEnglish($text);
     }
 
-    /**
-     * Catches CJK, Cyrillic, Arabic, etc. — scripts that don't use
-     * whitespace between words the way the stopword check below
-     * assumes, so this has to run as its own, separate check.
-     */
     protected function looksNonLatinScript(string $text): bool
     {
         $letters = preg_replace('/[^\p{L}]/u', '', $text);
@@ -182,15 +199,6 @@ class TumblrService implements FeedProvider
         return (mb_strlen((string) $latinLetters) / mb_strlen($letters)) < 0.4;
     }
 
-    /**
-     * Zero-dependency heuristic, not real language detection: checks
-     * what fraction of words are common English function words (the,
-     * and, is, of...). Real prose in English reliably scores high on
-     * this; other Latin-alphabet languages (German, French, Spanish...)
-     * reliably score near zero, since they use entirely different words
-     * for the same grammatical roles. Short text is left alone since
-     * there isn't enough signal to judge reliably either way.
-     */
     protected function looksNonEnglish(string $text): bool
     {
         $words = preg_split('/\s+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
