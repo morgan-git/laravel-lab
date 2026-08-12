@@ -20,7 +20,7 @@ class TumblrService implements FeedProvider
      * the common patterns worth auto-filtering.
      */
     private const array IGNORED_CONTENT_PATTERNS = [
-        '/thanks? (you )?for (the )?(likes?|follows?|reblogs?)/i',
+        '/thanks?(?:\s+\w+){0,4}?\s+for\s+(the\s+)?(likes?|follows?|reblogs?)/i',
         '/follow for follow/i',
         '/\bf4f\b/i',
         '/check out my (blog|page)/i',
@@ -157,15 +157,17 @@ class TumblrService implements FeedProvider
                 return true;
             }
         }
+        if ($this->looksNonLatinScript($text)) {
+            return true;
+        }
 
-        return $this->looksNonLatinScript($text);
+        return $this->looksNonEnglish($text);
     }
 
     /**
-     * Crude heuristic, not real language detection: flags text that's
-     * mostly non-Latin-alphabet characters (CJK, Cyrillic, Arabic, etc).
-     * Won't catch other Latin-alphabet languages (French, Spanish...) —
-     * that would need a real language-detection library if it matters.
+     * Catches CJK, Cyrillic, Arabic, etc. — scripts that don't use
+     * whitespace between words the way the stopword check below
+     * assumes, so this has to run as its own, separate check.
      */
     protected function looksNonLatinScript(string $text): bool
     {
@@ -178,5 +180,33 @@ class TumblrService implements FeedProvider
         $latinLetters = preg_replace('/[^A-Za-z]/', '', $letters);
 
         return (mb_strlen((string) $latinLetters) / mb_strlen($letters)) < 0.4;
+    }
+
+    /**
+     * Zero-dependency heuristic, not real language detection: checks
+     * what fraction of words are common English function words (the,
+     * and, is, of...). Real prose in English reliably scores high on
+     * this; other Latin-alphabet languages (German, French, Spanish...)
+     * reliably score near zero, since they use entirely different words
+     * for the same grammatical roles. Short text is left alone since
+     * there isn't enough signal to judge reliably either way.
+     */
+    protected function looksNonEnglish(string $text): bool
+    {
+        $words = preg_split('/\s+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
+
+        if (count($words) < 6) {
+            return false;
+        }
+
+        static $englishStopwords = [
+            'the', 'and', 'is', 'of', 'to', 'a', 'in', 'for', 'with',
+            'on', 'this', 'that', 'it', 'was', 'are', 'my', 'i',
+            'you', 'we', 'have', 'has', 'be', 'at', 'from', 'or',
+        ];
+
+        $matches = count(array_intersect($words, $englishStopwords));
+
+        return ($matches / count($words)) < 0.08;
     }
 }
