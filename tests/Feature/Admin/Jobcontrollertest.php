@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Jobs\SyncFeedSource;
 use App\Models\FailedJob;
 use App\Models\QueueJob;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -18,15 +17,6 @@ uses(RefreshDatabase::class);
 // QueueJob/FailedJob wrap Laravel's stock `jobs`/`failed_jobs` tables
 // (confirmed default schema). No factories exist for these framework-managed
 // tables, so rows are inserted directly with DB::table() below.
-function actingAsAdmin(): User
-{
-    return User::factory()->create(['is_admin' => true]);
-}
-
-function actingAsRegularUser(): User
-{
-    return User::factory()->create(['is_admin' => false]);
-}
 
 function makeQueueJobRow(array $overrides = []): QueueJob
 {

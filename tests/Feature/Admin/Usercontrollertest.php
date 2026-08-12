@@ -8,15 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 // The `view-admin` Gate checks $user->is_admin (confirmed).
-function actingAsAdmin(): User
-{
-    return User::factory()->create(['is_admin' => true]);
-}
-
-function actingAsRegularUser(): User
-{
-    return User::factory()->create(['is_admin' => false]);
-}
 
 // --- Access control -------------------------------------------------------
 

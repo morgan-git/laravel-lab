@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Jobs\SyncFeedSource;
 use App\Models\FeedSource;
 use App\Models\Topic;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -13,15 +12,6 @@ use Illuminate\Support\Facades\Queue;
 uses(RefreshDatabase::class);
 
 // The `view-admin` Gate checks $user->is_admin (confirmed).
-function actingAsAdmin(): User
-{
-    return User::factory()->create(['is_admin' => true]);
-}
-
-function actingAsRegularUser(): User
-{
-    return User::factory()->create(['is_admin' => false]);
-}
 
 // --- Access control -------------------------------------------------------
 
