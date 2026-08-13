@@ -1,11 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\FeedPost;
 use App\Models\FeedSource;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<FeedPost>
+ */
 class FeedPostFactory extends Factory
 {
     protected $model = FeedPost::class;
@@ -14,13 +19,13 @@ class FeedPostFactory extends Factory
     {
         return [
             'feed_source_id' => FeedSource::factory(),
-            'external_id' => 't3_'.$this->faker->unique()->regexify('[a-z0-9]{6}'),
-            'title' => $this->faker->sentence(),
-            'url' => $this->faker->url(),
-            'author' => '/u/'.$this->faker->userName(),
-            'image_url' => $this->faker->imageUrl(),
-            'content' => $this->faker->paragraphs(2, true),
-            'posted_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
+            'external_id' => fake()->unique()->numerify('8##################'),
+            'title' => fake()->sentence(),
+            'url' => fake()->url(),
+            'author' => fake()->userName(),
+            'image_url' => fake()->imageUrl(),
+            'content' => fake()->paragraph(),
+            'posted_at' => fake()->dateTimeBetween('-1 month', 'now'),
         ];
     }
 }

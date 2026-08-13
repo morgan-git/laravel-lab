@@ -22,7 +22,6 @@ class WebhookController extends Controller
 
     public function discord(Request $request, FeedSelector $selector): JsonResponse
     {
-        // Log the incoming request
         $log = WebhookRequest::create([
             'provider' => 'discord',
             'requester_id' => $request->input('guild_id', 'unknown'),
@@ -32,48 +31,29 @@ class WebhookController extends Controller
             'status' => 'pending',
         ]);
 
-        // Verify Discord signature
         if (! $this->provider->verify($request)) {
             $log->update(['status' => 'unauthorized']);
 
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
-        // Discord sends a ping to verify the endpoint — must respond with type 1
         if ($request->input('type') === 1) {
             $log->update(['status' => 'ping', 'payload_out' => ['type' => 1]]);
 
             return response()->json(['type' => 1]);
         }
 
-        // The slash command's option value — no longer assumes Reddit,
-        // this is looked up against any provider's handle. A handle is
-        // required: a truly topic-blind random pick across every
-        // provider/category doesn't produce a meaningful result, so we
-        // don't fall back to one.
-        $topic = $request->input('data.options.0.value');
-
-        if (! $topic) {
-            $log->update(['status' => 'failed']);
-
-            return $this->provider->respond('Please specify a source, e.g. "memes" or "foodporn".');
-        }
-
+        $topic = $request->input('data.name');
         $post = $selector->randomForTopic($topic);
 
-        if (! $post instanceof FeedPost) {
-            $log->update(['status' => 'failed']);
-
-            return $this->provider->respond("No posts found for \"{$topic}\".");
-        }
-
-        $content = "**{$post->title}**\n{$post->url}";
+        // Let the provider handle formatting the post or error message
+        $payload = $this->provider->formatPayload($post, $topic);
 
         $log->update([
-            'status' => 'success',
-            'payload_out' => ['content' => $content],
+            'status' => $post instanceof FeedPost ? 'success' : 'failed',
+            'payload_out' => $payload,
         ]);
 
-        return $this->provider->respond($content);
+        return $this->provider->respond($payload);
     }
 }

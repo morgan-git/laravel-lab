@@ -83,7 +83,7 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "test:browser": [
-            "vendor/bin/pest tests/Browser"
+            "vendor/bin/pest tests/Browser tests/Feature"
         ],
         "format": [
             "vendor/bin/rector",
