@@ -6,7 +6,10 @@ The Discord bot ("Labbotameme") receives slash commands via **HTTP interactions*
 
 1. A user runs `/foodporn` (or whichever topic-named command) in a server the app is installed to.
 2. Discord POSTs the interaction to your app's registered **Interactions Endpoint URL** — locally, this is an ngrok tunnel pointed at `/api/webhook/discord`; in production, it'll be `https://afterthesyntax.com/api/webhook/discord` or similar.
-3. `WebhookController::discord()` verifies the request is genuinely from Discord (see below), then either answers a `PING` (type `1`) or looks up a post for the topic and responds with a formatted embed.
+3. This hits `WebhookController::handle()`, a **generic** endpoint — the route is actually `POST /api/webhook/{provider}`, and Discord just happens to be the `provider` value `discord`. The controller resolves `App\Webhooks\DiscordWebhookProvider` via a tagged binding and delegates every platform-specific decision (signature scheme, ping detection, response shape) to it.
+4. `DiscordWebhookProvider::verify()` confirms the request is genuinely from Discord (see below), then either answers a `PING` or looks up a post for the topic and responds with a formatted embed.
+
+The endpoint is rate-limited to **30 requests/minute per IP** (`throttle:30,1` on the route).
 
 ## Environment variables
 
@@ -19,17 +22,13 @@ The Discord bot ("Labbotameme") receives slash commands via **HTTP interactions*
 
 ## Signature verification
 
-`App\Webhooks\DiscordWebhookProvider::verify()` checks the `X-Signature-Ed25519` and `X-Signature-Timestamp` headers against `DISCORD_PUBLIC_KEY`, using PHP's built-in `sodium` extension (no external package needed — confirm the extension is present on whatever server you deploy to, via `php -m | grep sodium`).
+`DiscordWebhookProvider::verify()` checks the `X-Signature-Ed25519` and `X-Signature-Timestamp` headers against `DISCORD_PUBLIC_KEY`, using PHP's built-in `sodium` extension (no external package needed — confirm the extension is present on whatever server you deploy to, via `php -m | grep sodium`).
 
 Any request that fails verification gets logged to `webhook_requests` with `status: unauthorized` and a `401` response — it never reaches the topic-lookup logic at all.
 
 ## The command-per-topic design (and its tradeoff)
 
-Each topic has its **own registered slash command** — `/foodporn`, `/cooking`, etc. — rather than a single command with a topic option (like `/feed topic:foodporn`). The controller pulls the topic straight from the command name:
-
-```php
-$topic = $request->input('data.name');
-```
+Each topic has its **own registered slash command** — `/foodporn`, `/cooking`, etc. — rather than a single command with a topic option (like `/feed topic:foodporn`). `DiscordWebhookProvider::action()` pulls the topic straight from the command name (`data.name`).
 
 This is nicer to type as a user, but it comes with a real cost: **adding a new topic requires a Discord-side command registration**, not just a database row. The topic system itself (the `Topic` model, `feed_sources.topic_id`) was built specifically so that adding a source didn't require touching Discord at all — this design re-introduces that coupling for the Discord surface specifically. Worth keeping in mind if topics start changing often; a single parameterized command would remove this step entirely at the cost of a slightly clunkier command to type.
 
@@ -48,7 +47,7 @@ curl -X POST https://discord.com/api/v10/applications/{application_id}/commands 
       }'
 ```
 
-`name` must exactly match the `Topic`'s `name` in the database — the controller does a direct string match, no slugification currently happens on either side.
+`name` must exactly match the `Topic`'s `name` in the database — the controller (via `DiscordWebhookProvider::action()`) does a direct string match, no slugification currently happens on either side.
 
 ## Local development loop
 
@@ -75,13 +74,16 @@ curl -X POST https://discord.com/api/v10/applications/{application_id}/commands 
 - **Post found:** a rich embed — `title` (truncated to 256 characters with a trailing `...` if longer, since Discord rejects longer embed titles outright), `url` (only included if the post has one), `color` (a fixed value), and `image` (only included if the post has an image).
 - **No post found for the topic:** a plain `content` message: `No posts found for "{topic}".` — this covers both "topic exists but has zero posts" and "no such topic at all" (a stale or typo'd command), which look identical from the controller's point of view.
 
+`DiscordWebhookProvider::pingResponse()` is kept deliberately separate from this — Discord's ping ack is a bare `{"type": 1}`, not wrapped in the `{"type": 4, "data": ...}` shape a normal command response uses.
+
 ## Logging
 
-Every inbound request — verified or not — gets a row in `webhook_requests`:
+Every inbound request — verified or not, even for a provider name that isn't registered at all — gets a row in `webhook_requests`:
 
 | `status` | Meaning |
 |---|---|
 | `pending` | Row created, before verification runs |
+| `unknown_provider` | The `{provider}` route segment doesn't match any registered `WebhookProvider` binding (e.g. a typo'd URL, or a probe hitting the endpoint) |
 | `unauthorized` | Signature verification failed |
 | `ping` | Discord's `PING` handshake, answered with `{"type": 1}` |
 | `success` | A post was found and returned |
@@ -91,4 +93,9 @@ Every inbound request — verified or not — gets a row in `webhook_requests`:
 
 ## Testing
 
-`tests/Feature/WebhookControllerTest.php` is the reference suite — it exercises the full request cycle (real Ed25519 signing, real HTTP calls, real DB assertions) rather than just testing `DiscordWebhookProvider` in isolation. Copy its structure (particularly the bound-closure signing helper on `$this`, not a global function — see the comment at the top of that file for why) when adding coverage for a new consumer.
+Two files together cover this end to end:
+
+- `tests/Unit/DiscordWebhookProviderTest.php` — every method on `DiscordWebhookProvider` in isolation: signature verification, ping detection, requester/action extraction, payload formatting.
+- `tests/Feature/WebhookControllerTest.php` — the full real HTTP request cycle (real Ed25519 signing, real routing through `{provider}`, real DB assertions on `webhook_requests`), proving the generic controller and the Discord-specific provider actually work together, not just in isolation.
+
+Copy both files' structure (particularly the bound-closure request-building/signing helpers on `$this`, not global functions — see the comments at the top of each file for why) when adding coverage for a new consumer.
