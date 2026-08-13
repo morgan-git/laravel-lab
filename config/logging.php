@@ -133,6 +133,11 @@ return [
             'path' => storage_path('logs/feed-sync.log'),
             'level' => 'debug',
         ],
+        'webhooks' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/webhooks.log'),
+            'level' => 'debug',
+        ],
 
     ],
 

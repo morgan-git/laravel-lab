@@ -117,3 +117,48 @@ it('responds with the required Discord JSON shape', function () {
         ->and($data)->toHaveKey('data')
         ->and($data['data']['content'])->toBe('hello from labbotameme');
 });
+
+use App\Models\FeedPost;
+
+// ... keep all your existing verification tests ...
+
+it('formats a payload correctly with a post, image, and safe title', function () {
+    $post = new FeedPost([
+        'title' => 'Test Post Title',
+        'url' => 'https://example.com/post',
+        'image_url' => 'https://example.com/image.jpg',
+    ]);
+
+    $payload = $this->provider->formatPayload($post, 'foodporn');
+
+    expect($payload)->toHaveKey('embeds')
+        ->and($payload['embeds'][0])->toMatchArray([
+            'title' => 'Test Post Title',
+            'url' => 'https://example.com/post',
+            'color' => 9109686,
+            'image' => [
+                'url' => 'https://example.com/image.jpg',
+            ],
+        ]);
+});
+
+it('formats a fallback error payload when no post is found', function () {
+    $payload = $this->provider->formatPayload(null, 'foodporn');
+
+    expect($payload)->toHaveKey('content')
+        ->and($payload['content'])->toBe('No posts found for "foodporn".');
+});
+
+it('truncates overly long titles to satisfy Discord limits', function () {
+    $longTitle = str_repeat('A', 300); // 300 characters, over the 256 limit
+
+    $post = new FeedPost([
+        'title' => $longTitle,
+        'url' => 'https://example.com/post',
+    ]);
+
+    $payload = $this->provider->formatPayload($post, 'foodporn');
+
+    expect(mb_strlen((string) $payload['embeds'][0]['title']))->toBeLessThanOrEqual(256)
+        ->and($payload['embeds'][0]['title'])->toEndWith('...');
+});
