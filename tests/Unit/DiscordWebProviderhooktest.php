@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\FeedPost;
 use App\Webhooks\DiscordWebhookProvider;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,20 @@ beforeEach(function () {
     config(['services.discord.public_key' => bin2hex($this->publicKey)]);
 
     $this->provider = new DiscordWebhookProvider;
+
+    // Bound closure rather than a global function — WebhookControllerTest
+    // uses the same approach for its request-building helper, specifically
+    // to avoid two test files declaring a same-named global function and
+    // fatal-erroring the whole suite when both load in one Pest run.
+    $this->jsonRequest = (fn (array $payload) => Request::create(
+        '/webhook/discord',
+        'POST',
+        [],
+        [],
+        [],
+        ['CONTENT_TYPE' => 'application/json'],
+        json_encode($payload)
+    ));
 });
 
 function signBody(string $secretKey, string $timestamp, string $body): string
@@ -22,6 +37,8 @@ function signBody(string $secretKey, string $timestamp, string $body): string
 
     return bin2hex($signature);
 }
+
+// --- verify() ---------------------------------------------------------
 
 it('verifies a request with a valid signature', function () {
     $timestamp = (string) time();
@@ -105,6 +122,73 @@ it('rejects a request with a malformed (non-hex) signature', function () {
     expect($this->provider->verify($request))->toBeFalse();
 });
 
+// --- isPing() / pingResponse() -----------------------------------------
+
+it('identifies a type 1 interaction as a ping', function () {
+    $request = ($this->jsonRequest)(['type' => 1]);
+
+    expect($this->provider->isPing($request))->toBeTrue();
+});
+
+it('does not identify a command interaction as a ping', function () {
+    $request = ($this->jsonRequest)([
+        'type' => 2,
+        'data' => ['name' => 'foodporn'],
+    ]);
+
+    expect($this->provider->isPing($request))->toBeFalse();
+});
+
+it('returns the bare {type: 1} shape for a ping response, not the wrapped command shape', function () {
+    $response = $this->provider->pingResponse();
+
+    expect($response->status())->toBe(200)
+        ->and($response->getData(true))->toBe(['type' => 1]);
+});
+
+// --- requesterId() / requesterType() -------------------------------------
+
+it('extracts the guild id as the requester id', function () {
+    $request = ($this->jsonRequest)(['guild_id' => 'guild-456']);
+
+    expect($this->provider->requesterId($request))->toBe('guild-456');
+});
+
+it('falls back to "unknown" when no guild id is present', function () {
+    $request = ($this->jsonRequest)(['type' => 2]);
+
+    expect($this->provider->requesterId($request))->toBe('unknown');
+});
+
+it('always reports "guild" as the requester type', function () {
+    // requesterType() doesn't currently inspect the request at all, but
+    // it takes one per the contract — passing an empty request confirms
+    // that stays true rather than the method secretly depending on
+    // something like guild_id being present.
+    $request = ($this->jsonRequest)([]);
+
+    expect($this->provider->requesterType($request))->toBe('guild');
+});
+
+// --- action() -----------------------------------------------------------
+
+it('extracts the slash command name as the action/topic', function () {
+    $request = ($this->jsonRequest)([
+        'type' => 2,
+        'data' => ['name' => 'foodporn'],
+    ]);
+
+    expect($this->provider->action($request))->toBe('foodporn');
+});
+
+it('falls back to "unknown" when no command name is present', function () {
+    $request = ($this->jsonRequest)(['type' => 1]);
+
+    expect($this->provider->action($request))->toBe('unknown');
+});
+
+// --- respond() ------------------------------------------------------
+
 it('responds with the required Discord JSON shape', function () {
     $response = $this->provider->respond(['content' => 'hello from labbotameme']);
 
@@ -118,9 +202,7 @@ it('responds with the required Discord JSON shape', function () {
         ->and($data['data']['content'])->toBe('hello from labbotameme');
 });
 
-use App\Models\FeedPost;
-
-// ... keep all your existing verification tests ...
+// --- formatPayload() --------------------------------------------------
 
 it('formats a payload correctly with a post, image, and safe title', function () {
     $post = new FeedPost([

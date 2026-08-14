@@ -43,6 +43,31 @@ class DiscordWebhookProvider implements WebhookProvider
         return sodium_crypto_sign_verify_detached($signatureBytes, $message, $publicKey);
     }
 
+    public function isPing(Request $request): bool
+    {
+        return (int) $request->input('type') === 1;
+    }
+
+    public function pingResponse(): JsonResponse
+    {
+        return response()->json(['type' => 1]);
+    }
+
+    public function requesterId(Request $request): string
+    {
+        return (string) $request->input('guild_id', 'unknown');
+    }
+
+    public function requesterType(Request $request): string
+    {
+        return 'guild';
+    }
+
+    public function action(Request $request): string
+    {
+        return (string) $request->input('data.name', 'unknown');
+    }
+
     public function formatPayload(?FeedPost $post, string $topic): array
     {
         // Handle the "not found" case

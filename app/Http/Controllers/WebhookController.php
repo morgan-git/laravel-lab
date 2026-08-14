@@ -13,47 +13,57 @@ use Illuminate\Http\Request;
 
 class WebhookController extends Controller
 {
-    private readonly WebhookProvider $provider;
-
-    public function __construct()
+    public function handle(Request $request, string $provider, FeedSelector $selector): JsonResponse
     {
-        $this->provider = app(WebhookProvider::class.':discord');
-    }
-
-    public function discord(Request $request, FeedSelector $selector): JsonResponse
-    {
+        // Log the attempt before even trying to resolve a binding, so an
+        // unregistered/misspelled provider in the URL still shows up in
+        // webhook_requests rather than vanishing as a bare 404 with no trace.
         $log = WebhookRequest::create([
-            'provider' => 'discord',
-            'requester_id' => $request->input('guild_id', 'unknown'),
-            'requester_type' => 'guild',
+            'provider' => $provider,
+            'requester_id' => 'unknown',
+            'requester_type' => 'unknown',
             'payload_in' => $request->all(),
-            'action' => $request->input('data.name', 'unknown'),
+            'action' => 'unknown',
             'status' => 'pending',
         ]);
 
-        if (! $this->provider->verify($request)) {
+        try {
+            $webhookProvider = app(WebhookProvider::class.':'.$provider);
+        } catch (\Throwable) {
+            $log->update(['status' => 'unknown_provider']);
+
+            return response()->json(['error' => 'Unknown provider'], 404);
+        }
+
+        if (! $webhookProvider->verify($request)) {
             $log->update(['status' => 'unauthorized']);
 
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
-        if ($request->input('type') === 1) {
-            $log->update(['status' => 'ping', 'payload_out' => ['type' => 1]]);
+        if ($webhookProvider->isPing($request)) {
+            $response = $webhookProvider->pingResponse();
 
-            return response()->json(['type' => 1]);
+            $log->update([
+                'status' => 'ping',
+                'payload_out' => $response->getData(true),
+            ]);
+
+            return $response;
         }
 
-        $topic = $request->input('data.name');
+        $topic = $webhookProvider->action($request);
         $post = $selector->randomForTopic($topic);
-
-        // Let the provider handle formatting the post or error message
-        $payload = $this->provider->formatPayload($post, $topic);
+        $payload = $webhookProvider->formatPayload($post, $topic);
 
         $log->update([
+            'requester_id' => $webhookProvider->requesterId($request),
+            'requester_type' => $webhookProvider->requesterType($request),
+            'action' => $topic,
             'status' => $post instanceof FeedPost ? 'success' : 'failed',
             'payload_out' => $payload,
         ]);
 
-        return $this->provider->respond($payload);
+        return $webhookProvider->respond($payload);
     }
 }

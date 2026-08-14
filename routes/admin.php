@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\DocsController;
 use App\Http\Controllers\Admin\FeedSourceController;
 use App\Http\Controllers\Admin\JobController;
 use App\Http\Controllers\Admin\UserController;
@@ -15,6 +16,8 @@ Route::middleware(['auth', 'can:view-admin'])->prefix('admin')->name('admin.')->
     Route::post('feed-sources/{feedSource}/sync', [FeedSourceController::class, 'sync'])->name('feed-sources.sync');
 
     Route::get('users', [UserController::class, 'index'])->name('users.index');
+    Route::get('docs', [DocsController::class, 'index'])->name('docs.index');
+    Route::get('docs/{doc}', [DocsController::class, 'show'])->name('docs.show');
     Route::patch('users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');
 
     Route::get('jobs', [JobController::class, 'index'])->name('jobs.index');

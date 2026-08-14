@@ -68,16 +68,17 @@ Each returned post should use the application's normalized structure:
 
 Provider-specific parsing, filtering, cleanup, and API quirks belong inside the provider service.
 
+If your provider is prone to cross-posting the same content across multiple accounts (a content-farm pattern — see `TumblrService`), you can also include a `dedupe_key` in each normalized post. `SyncFeedSource` will use it to skip saving a duplicate when the same key has already been seen for that source. This field is optional — omit it entirely if your provider doesn't have this problem.
+
 ## 3. Register the provider
 
 Register the service in `AppServiceProvider` using the provider name stored in `FeedSource`:
 
 ```php
-$this->app->bind(
-    FeedProvider::class . ':example',
-    fn () => new ExampleService()
-);
+$this->app->bind(FeedProvider::class . ':example', ExampleService::class);
 ```
+
+A plain class-string binding like this is enough — Laravel's container will auto-resolve the service's constructor dependencies (see `RedditService`'s optional `?Client $client` constructor param for an example of a dependency that's still resolvable this way, while also remaining swappable for a mock in tests).
 
 The provider name should match the value stored in the `provider` column.
 
@@ -86,10 +87,9 @@ For example:
 ```text
 provider: tumblr
 handle: foodporn
-topic: foodporn
 ```
 
-The `handle` is provider-specific. The `topic` is the application-level concept used by features such as the Discord webhook.
+The `handle` is provider-specific and lives directly on the `FeedSource` row. Which **topic** that source belongs to is a separate concept — see step 6.
 
 ## 4. Add the provider to the admin
 
@@ -119,9 +119,11 @@ A feed source has several distinct pieces of information:
 | `provider`     | Which service handles the feed                                     |
 | `handle`       | Provider-specific feed identifier                                  |
 | `display_name` | Human-readable name shown by the site                              |
-| `topic`        | Application-level category used for topic selection                |
+| `topic_id`     | Foreign key to the `Topic` this source belongs to                  |
 | `active`       | Whether the source should continue syncing                         |
 | `visible`      | Whether the source is exposed to the public site / topic selection |
+
+`topic_id` is managed through the admin form as either picking an existing `Topic` from a dropdown, or typing a new one — `FeedSourceController` handles finding-or-creating the `Topic` row behind the scenes (`resolveTopicId()`), so you never need to create a `Topic` separately before adding a source for it.
 
 Keeping `active` and `visible` separate is intentional.
 
@@ -145,24 +147,18 @@ This means the job does not need provider-specific logic.
 
 Adding another provider therefore does not require changing the synchronization job.
 
+Note that `SyncFeedSource` does **not** filter posts by any last-synced timestamp — every post a provider returns gets processed on every run. This is intentional: a post's own timestamp can lag behind when it actually surfaces in a provider's feed, so filtering by a previous sync's cutoff can permanently drop a post that was never actually saved. `updateOrCreate()` (keyed on `feed_source_id` + `external_id`) already makes reprocessing the same posts safe and cheap, so there's no need for a provider service to do its own "only return new posts" filtering either — return everything the API gives you and let the job's existing idempotency handle the rest.
+
 ## 6. Topics
 
-A topic represents what the application wants to retrieve, rather than how a particular provider represents it.
+A topic represents what the application wants to retrieve, rather than how a particular provider represents it. Topics are their own model (`App\Models\Topic`), not a free-text field on `FeedSource`.
 
 For example:
 
 ```text
-Topic: foodporn
-
-Tumblr:
-    provider = tumblr
-    handle   = foodporn
-    topic    = foodporn
-
-Bluesky:
-    provider = bluesky
-    handle   = food-porn.bsky.social
-    topic    = foodporn
+Topic (name: "foodporn")
+  ├─ FeedSource: provider = tumblr,   handle = foodporn
+  └─ FeedSource: provider = bluesky,  handle = food-porn.bsky.social
 ```
 
 The Discord webhook can therefore request:
@@ -181,7 +177,7 @@ public function randomForTopic(string $topic): ?FeedPost
     return FeedPost::whereHas(
         'source',
         fn ($query) => $query
-           ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topicName))
+            ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topic))
             ->where('visible', true)
     )->inRandomOrder()->first();
 }
@@ -210,10 +206,10 @@ Those decisions should generally stay inside the provider service rather than le
 Add provider-specific tests under:
 
 ```text
-tests/Browser/
+tests/Unit/
 ```
 
-or the appropriate test location for the service.
+Provider services in this codebase are tested with a mocked HTTP client (see `RedditService`'s tests for the `makeService(string $fixtureFile)` / `MockHandler` pattern) — no real network calls, no database. That makes `tests/Unit/` the right home: no DB, no HTTP, pure logic.
 
 Tests should verify that the provider:
 
@@ -222,7 +218,8 @@ Tests should verify that the provider:
 3. handles malformed or unexpected provider content;
 4. filters content that the provider service is responsible for filtering.
 
-The webhook should be tested separately at the application level. It should care about topics and normalized `FeedPost` records, not the provider's API format.
+The webhook should be tested separately at the application level, in `tests/Feature/` — it should care about topics and normalized `FeedPost` records, not the provider's API format. See `tests/Feature/WebhookControllerTest.php` for the current reference pattern (real signed HTTP requests, real DB assertions).
+
 
 ## 9. Environment variables
 
@@ -261,7 +258,7 @@ Adding a provider should generally require:
 3. Register the provider in `AppServiceProvider`.
 4. Add the provider to the admin's accepted provider list.
 5. Add any required configuration/environment variables.
-6. Add provider-specific tests.
-7. Create feed sources through the admin with the appropriate provider, handle, display name, and topic.
+6. Add provider-specific tests under `tests/Unit/`.
+7. Create feed sources through the admin with the appropriate provider, handle, display name, and topic — the topic can be picked from existing ones or created inline.
 
 The synchronization job, public feed UI, and topic-based Discord selection should not need to know the provider's API details.
