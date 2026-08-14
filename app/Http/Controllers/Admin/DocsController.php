@@ -14,12 +14,7 @@ class DocsController extends Controller
 {
     /**
      * Docs available in the viewer: README.md and DEPLOYMENT.md at the
-     * repo root, plus every .md file in docs/. Built from an actual
-     * filesystem scan rather than a hardcoded list, so a new doc just
-     * needs to exist on disk to show up here — no code change needed
-     * to register it. Keyed by slug, which is what {doc} route params
-     * get looked up against — the route param never touches a real
-     * file path directly.
+     * repo root, plus every .md file in docs/.
      *
      * @return array<string, array{title: string, path: string}>
      */
@@ -64,15 +59,25 @@ class DocsController extends Controller
     public function index(): View
     {
         $docs = collect($this->availableDocs())
-            ->map(fn (array $doc, string $slug) => [
-                'slug' => $slug,
-                'title' => $doc['title'],
-                'updatedAt' => File::lastModified($doc['path']),
-            ])
+            ->map(function (array $doc, string $slug): array {
+                $content = File::get($doc['path']);
+
+                return [
+                    'slug' => $slug,
+                    'title' => $doc['title'],
+                    'updatedAt' => File::lastModified($doc['path']),
+                    'html' => Str::of($content)->markdown([
+                        'html_input' => 'strip',
+                        'allow_unsafe_links' => false,
+                    ])->toHtmlString(),
+                ];
+            })
             ->sortBy('title')
             ->values();
 
-        return view('admin.docs.index', ['docs' => $docs]);
+        return view('admin.docs.index', [
+            'docs' => $docs,
+        ]);
     }
 
     public function show(string $doc): View
@@ -88,10 +93,6 @@ class DocsController extends Controller
         return view('admin.docs.show', [
             'slug' => $doc,
             'title' => $docs[$doc]['title'],
-            // html_input: strip + allow_unsafe_links: false as a defense-in-depth
-            // default — these are our own committed files, but there's no
-            // reason to let arbitrary embedded HTML/links execute in the
-            // admin panel just because a future doc edit could introduce some.
             'html' => Str::of($content)->markdown([
                 'html_input' => 'strip',
                 'allow_unsafe_links' => false,
