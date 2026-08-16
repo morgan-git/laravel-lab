@@ -27,6 +27,35 @@ class TumblrService implements FeedProvider
         '/new followers?/i',
     ];
 
+    /**
+     * Content-farm accounts cross-post the same recipe under rotating
+     * "hook" prefixes to look like distinct posts. This list is
+     * necessarily whack-a-mole — every new phrasing the farms invent
+     * gets through until it's spotted and added here. A more general
+     * "strip any short label: prefix" heuristic would catch future
+     * variants automatically, but risks stripping a legitimate post
+     * that genuinely starts with something like "Recipe: My Grandma's
+     * Sauce" — deliberately not doing that without discussing the
+     * false-positive tradeoff first. Used for both the display title
+     * cleanup and the dedupe key, so it only needs updating in one
+     * place when a new prefix shows up.
+     */
+    private const string KNOWN_PREFIX_PATTERN = '/^(Weeknight dinner solved:\s*|This one\'s a keeper:\s*|I\'ve been making this on repeat:\s*|Saving this one for later:\s*)/i';
+
+    /**
+     * Whole content-farm blog networks to exclude outright, matched as a
+     * case-insensitive prefix against blog_name. Used when a single farm
+     * is spinning up multiple sub-blogs (e.g. "optimalrecipes-healthy",
+     * "optimalrecipes-baking", "optimalrecipes-dinner", ...) purely to
+     * cross-post the same recycled content under rotating titles — at
+     * that point blocking the whole family is more robust than chasing
+     * every new title-prefix variant they invent (they keep inventing
+     * new ones; a blog-level block doesn't care what the title says).
+     */
+    private const array BLOCKED_BLOG_PREFIXES = [
+        'optimalrecipes',
+    ];
+
     public function __construct(?Client $client = null)
     {
         $this->client = $client ?? new Client([
@@ -71,6 +100,12 @@ class TumblrService implements FeedProvider
 
         return collect($posts)
             ->map(function ($post): ?array {
+                $blogName = (string) data_get($post, 'blog_name', '');
+
+                if ($this->isBlockedBlog($blogName)) {
+                    return null;
+                }
+
                 $imageUrl = $this->extractImage($post);
 
                 if (! $imageUrl) {
@@ -86,7 +121,7 @@ class TumblrService implements FeedProvider
                 $rawTitle = $text !== '' ? $text : (data_get($post, 'slug') ?: 'Food Post');
 
                 // Strip out dynamic content-farm prefixes for a clean title
-                $title = trim(preg_replace('/^(Weeknight dinner solved:\s*|This one\'s a keeper:\s*)/i', '', $rawTitle));
+                $title = trim(preg_replace(self::KNOWN_PREFIX_PATTERN, '', $rawTitle));
                 if ($title === '') {
                     $title = 'Food Post';
                 }
@@ -113,7 +148,7 @@ class TumblrService implements FeedProvider
             return $this->normalizeUrl($imageUrl) ?? uniqid();
         }
 
-        $clean = preg_replace('/^(Weeknight dinner solved:\s*|This one\'s a keeper:\s*)/i', '', $text);
+        $clean = preg_replace(self::KNOWN_PREFIX_PATTERN, '', $text);
         $clean = preg_replace('/(You might also love:.*)$/i', '', (string) $clean);
 
         $clean = mb_strtolower((string) preg_replace('/[^\p{L}\p{N}\s]/u', '', (string) $clean));
@@ -139,6 +174,13 @@ class TumblrService implements FeedProvider
         $clean = strtok($url, '?#');
 
         return strtolower(rtrim((string) $clean, '/'));
+    }
+
+    protected function isBlockedBlog(string $blogName): bool
+    {
+        $blogName = mb_strtolower($blogName);
+
+        return array_any(self::BLOCKED_BLOG_PREFIXES, fn ($prefix) => str_starts_with($blogName, mb_strtolower((string) $prefix)));
     }
 
     protected function extractImage(array $post): ?string

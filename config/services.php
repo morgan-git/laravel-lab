@@ -42,4 +42,8 @@ return [
     'tumblr' => [
         'key' => env('TUMBLR_API_KEY'),
     ],
+
+    'webhook' => [
+        'seen_expiry_days' => env('WEBHOOK_SEEN_EXPIRY_DAYS', 30),
+    ],
 ];

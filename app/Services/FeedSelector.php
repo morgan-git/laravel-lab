@@ -27,13 +27,45 @@ class FeedSelector
      * looks like (e.g. Bluesky's "food-porn.bsky.social" vs Tumblr's
      * "foodporn" tag). Respects `visible`, same rule the public feed
      * page follows.
+     *
+     * $provider and $requesterId are optional so this stays backward
+     * compatible with any caller that doesn't care about has-seen
+     * exclusion — if either is omitted, exclusion is simply skipped.
      */
-    public function randomForTopic(string $topicName): ?FeedPost
+    public function randomForTopic(string $topicName, ?string $provider = null, ?string $requesterId = null): ?FeedPost
     {
-        return FeedPost::whereHas(
+        $visibleForTopic = fn () => FeedPost::whereHas(
             'source',
             fn ($query) => $query->where('visible', true)
                 ->whereHas('topic', fn ($topicQuery) => $topicQuery->where('name', $topicName))
-        )->inRandomOrder()->first();
+        );
+
+        if ($provider === null || $requesterId === null) {
+            return $visibleForTopic()->inRandomOrder()->first();
+        }
+
+        $unseen = $visibleForTopic()
+            ->whereNotIn('id', function ($query) use ($provider, $requesterId) {
+                $query->select('feed_post_id')
+                    ->from('webhook_sent_posts')
+                    ->where('provider', $provider)
+                    ->where('requester_id', $requesterId);
+            })
+            ->inRandomOrder()
+            ->first();
+
+        if ($unseen) {
+            return $unseen;
+        }
+
+        // Every visible post for this topic has already been sent to
+        // this requester. Rather than returning null here — which the
+        // controller reports as "No posts found for {topic}", misleading
+        // since posts genuinely exist, they've just all been seen — fall
+        // back to the full pool so the command keeps working (with
+        // repeats) instead of going permanently dead for small topics.
+        // PruneSeenWebhookPosts is what keeps this fallback rare rather
+        // than the normal case.
+        return $visibleForTopic()->inRandomOrder()->first();
     }
 }
