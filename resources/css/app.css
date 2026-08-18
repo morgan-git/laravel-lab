@@ -119,3 +119,7 @@ a:hover {
 .text-muted-foreground{
     color: #36454F;
 }
+
+[x-cloak] {
+    display: none !important;
+}

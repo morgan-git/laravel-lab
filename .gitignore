@@ -7,6 +7,10 @@
 .phpunit.result.cache
 /.codex
 /.cursor/
+/.kiro
+/.junie
+/.agents
+/.claude
 /.idea
 /.nova
 /.phpunit.cache
@@ -25,4 +29,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+AGENTS.md
+CLAUDE.md
 tests/Browser/Screenshots

@@ -9,7 +9,6 @@ Artisan::command('inspire', function (): void {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('feeds:sync')->everyFifteenMinutes();
-// Schedule::command('feeds:sync')->everyFifteenMinutes();
-// php artisan feeds:sync
-// or just reddit
+Schedule::command('webhook:prune-seen')->daily(); // php artisan feeds:sync
+
 // php artisan feeds:sync reddit

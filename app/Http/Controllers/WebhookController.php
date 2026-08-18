@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Contracts\WebhookProvider;
 use App\Models\FeedPost;
 use App\Models\WebhookRequest;
+use App\Models\WebhookSentPost;
 use App\Services\FeedSelector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,12 +54,27 @@ class WebhookController extends Controller
         }
 
         $topic = $webhookProvider->action($request);
-        $post = $selector->randomForTopic($topic);
+        $requesterId = $webhookProvider->requesterId($request);
+        $requesterType = $webhookProvider->requesterType($request);
+
+        $post = $selector->randomForTopic($topic, $provider, $requesterId);
         $payload = $webhookProvider->formatPayload($post, $topic);
 
+        if ($post instanceof FeedPost) {
+            // Record that this requester has now seen this post, so
+            // FeedSelector::randomForTopic() excludes it for them next
+            // time — see PruneSeenWebhookPosts for how these expire.
+            WebhookSentPost::create([
+                'provider' => $provider,
+                'requester_id' => $requesterId,
+                'feed_post_id' => $post->id,
+                'sent_at' => now(),
+            ]);
+        }
+
         $log->update([
-            'requester_id' => $webhookProvider->requesterId($request),
-            'requester_type' => $webhookProvider->requesterType($request),
+            'requester_id' => $requesterId,
+            'requester_type' => $requesterType,
             'action' => $topic,
             'status' => $post instanceof FeedPost ? 'success' : 'failed',
             'payload_out' => $payload,
