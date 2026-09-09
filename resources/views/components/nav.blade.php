@@ -50,6 +50,7 @@
                             <li><a href="/admin/jobs/">Job Queue</a></li>
                             <li><a href="/admin/users/">Users</a></li>
                             <li><a href="/admin/docs/">Docs</a></li>
+                            <li><a href="/admin/webhook-requests/">Webhook Requests</a></li>
                         </ul>
                     </li>
                 @endcan
@@ -101,6 +102,7 @@
                         <li><a href="/admin/jobs/">Job Queue</a></li>
                         <li><a href="/admin/users/">Users</a></li>
                         <li><a href="/admin/docs/">Docs</a></li>
+                        <li><a href="/admin/webhook-requests/">Webhook Requests</a></li>
                     </ul>
                 </details>
             </li>
