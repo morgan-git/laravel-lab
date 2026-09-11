@@ -26,10 +26,18 @@ class JobController extends Controller
      * There's no built-in artisan command for this on the database
      * driver, so we just delete the row directly.
      */
-    public function cancel(QueueJob $job): RedirectResponse
+    public function cancel(int $job): RedirectResponse
     {
-        $name = $job->displayName();
-        $job->delete();
+        $queueJob = QueueJob::find($job);
+
+        if (! $queueJob) {
+            return redirect()
+                ->route('admin.jobs.index')
+                ->with('status', 'That job was already processed or removed before it could be cancelled.');
+        }
+
+        $name = $queueJob->displayName();
+        $queueJob->delete();
 
         return redirect()
             ->route('admin.jobs.index')
