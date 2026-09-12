@@ -56,6 +56,11 @@ class TumblrService implements FeedProvider
         'optimalrecipes',
     ];
 
+    /**
+     * Posts per page. Tumblr's own cap for this endpoint.
+     */
+    private const int PAGE_SIZE = 20;
+
     public function __construct(?Client $client = null)
     {
         $this->client = $client ?? new Client([
@@ -68,17 +73,68 @@ class TumblrService implements FeedProvider
     }
 
     /**
-     * Fetch public posts matching a tag (e.g., "foodporn" or "cooking")
+     * Fetch public posts matching a tag (e.g., "foodporn" or "cooking").
+     *
+     * Walks back up to $maxPages pages via the `before` param instead of
+     * just grabbing the newest 20, so a busy tag doesn't scroll posts
+     * out of the window between one sync and the next. Stops early if
+     * a page comes back short (nothing older left) or empty.
      */
-    public function fetch(string $tag): Collection
+    public function fetch(string $tag, int $maxPages = 5): Collection
+    {
+        $tag = trim($tag, '#/');
+        $before = null;
+        $rawPosts = collect();
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $pageOfPosts = $this->fetchPage($tag, $before);
+
+            if ($pageOfPosts->isEmpty()) {
+                break;
+            }
+
+            $rawPosts = $rawPosts->concat($pageOfPosts);
+
+            if ($pageOfPosts->count() < self::PAGE_SIZE) {
+                // Short page means we've hit the end of what Tumblr has
+                // for this tag right now, no point asking for more.
+                break;
+            }
+
+            $oldestTimestamp = $pageOfPosts->min(fn ($post) => data_get($post, 'timestamp'));
+
+            if (! $oldestTimestamp) {
+                break;
+            }
+
+            $before = $oldestTimestamp;
+        }
+
+        return $this->parseResponse($rawPosts->all());
+    }
+
+    /**
+     * One page of raw posts from Tumblr, oldest-timestamp-first caller
+     * passes $before to walk further back. Returns an empty collection
+     * on any failure or non-200 response, same as the old single-page
+     * fetch() did, so a mid-walk failure just stops pagination rather
+     * than blowing up the whole sync.
+     */
+    protected function fetchPage(string $tag, ?int $before): Collection
     {
         try {
+            $query = [
+                'tag' => $tag,
+                'api_key' => $this->apiKey,
+                'limit' => self::PAGE_SIZE,
+            ];
+
+            if ($before !== null) {
+                $query['before'] = $before;
+            }
+
             $response = $this->client->get('https://api.tumblr.com/v2/tagged', [
-                'query' => [
-                    'tag' => trim($tag, '#/'),
-                    'api_key' => $this->apiKey,
-                    'limit' => 20,
-                ],
+                'query' => $query,
             ]);
 
             if ($response->getStatusCode() !== 200) {
@@ -87,17 +143,15 @@ class TumblrService implements FeedProvider
 
             $json = json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR);
 
-            return $this->parseResponse($json);
+            return collect(data_get($json, 'response', []));
 
         } catch (\Throwable) {
             return collect();
         }
     }
 
-    protected function parseResponse(array $json): Collection
+    protected function parseResponse(array $posts): Collection
     {
-        $posts = data_get($json, 'response', []);
-
         return collect($posts)
             ->map(function ($post): ?array {
                 $blogName = (string) data_get($post, 'blog_name', '');
