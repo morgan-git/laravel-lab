@@ -45,8 +45,8 @@ class ImgurService implements FeedProvider
 
         $this->client = $client ?? new Client([
             'headers' => [
-                'Authorization' => 'Client-ID '.$this->clientId,
-                'Accept' => 'application/json',
+                'Authorization' => 'Client-ID ' . $this->clientId,
+                'Accept'        => 'application/json',
             ],
         ]);
     }
@@ -108,13 +108,13 @@ class ImgurService implements FeedProvider
                 }
 
                 return [
-                    'id' => (string) data_get($item, 'id'),
-                    'title' => $title,
-                    'url' => data_get($item, 'link'),
-                    'author' => data_get($item, 'account_url') ?: 'imgur_user',
-                    'updated' => date('Y-m-d H:i:s', data_get($item, 'datetime', time())),
-                    'content' => $text,
-                    'image' => $imageUrl,
+                    'id'         => (string) data_get($item, 'id'),
+                    'title'      => $title,
+                    'url'        => data_get($item, 'link'),
+                    'author'     => data_get($item, 'account_url') ?: 'imgur_user',
+                    'updated'    => date('Y-m-d H:i:s', data_get($item, 'datetime', time())),
+                    'content'    => $text,
+                    'image'      => $imageUrl,
                     'dedupe_key' => $this->generateDedupeKey($text, $imageUrl),
                 ];
             })
@@ -233,7 +233,13 @@ class ImgurService implements FeedProvider
 
     protected function looksNonEnglish(string $text): bool
     {
+        $words = preg_split('/\s+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
+
         // Match the structural return array requirement left open in original snippet
         return false;
     }
 }
+Endpoint Resolution: Uses Imgur's /3/gallery/t/{tag} logic. It defaults to sorting by viral over the past week, perfect for getting highly rated items under tags like memes or foodporn.Album Handling: Imgur frequently wraps uploads into albums. extractImage() checks if is_album is true and grabs the direct payload link from images.0 seamlessly.Authentication: Uses your project's config/services.php to fetch a Client-ID string (services.imgur.client_id).Make sure to add your credentials to your .env or config setup:php// config/services.php
+'imgur' => [
+    'client_id' => env('IMGUR_CLIENT_ID'),
+],

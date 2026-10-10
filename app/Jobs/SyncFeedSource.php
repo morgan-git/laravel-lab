@@ -9,7 +9,6 @@ use App\Models\FeedPost;
 use App\Models\FeedSource;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class SyncFeedSource implements ShouldQueue
@@ -74,9 +73,9 @@ class SyncFeedSource implements ShouldQueue
 
             // A dedupe_key (currently only Tumblr provides one) that's
             // already saved for this source means this is the same
-            // content re-surfacing from a different fetch batch — a
-            // content-farm network cross-posting the same article across
-            // sibling blogs at staggered times, for example. Skip it
+            // content re-surfacing from a different fetch batch, for
+            // example a content-farm network cross-posting the same
+            // article across sibling blogs at staggered times. Skip it
             // rather than saving a duplicate row.
             if ($dedupeKey && FeedPost::where('feed_source_id', $this->source->id)
                 ->where('dedupe_key', $dedupeKey)
@@ -105,7 +104,7 @@ class SyncFeedSource implements ShouldQueue
 
             // wasRecentlyCreated tells us whether this was a genuine new
             // insert vs. an existing row that just got its columns
-            // refreshed — the fetched/new counts logged below used to be
+            // refreshed. The fetched/new counts logged below used to be
             // meaningless (new === fetched, always) before this tracking
             // was added.
             $feedPost->wasRecentlyCreated ? $created++ : $updated++;
@@ -122,9 +121,9 @@ class SyncFeedSource implements ShouldQueue
         }
 
         if ($created > 0) {
-            // Evict the public feed page's cached results so new posts
-            // show up immediately instead of waiting out the 30 min TTL.
-            Cache::forget("{$this->source->provider}_{$this->source->handle}");
+            // Evict every cached feed page that includes this source so new
+            // posts show up immediately instead of waiting out the 30 min TTL.
+            $this->source->forgetPostsCaches();
         }
 
         Log::channel('feed-sync')->info('Feed sync complete', [

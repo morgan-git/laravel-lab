@@ -18,9 +18,7 @@ class FeedController extends Controller
         $topic = $request->query('topic');
         $sources = $this->cachedActiveSources();
 
-        $postsCacheKey = $topic
-            ? "feed_posts_topic_{$topic}"
-            : 'feed_posts_'.($provider ?? 'all').'_'.($handle ?? 'all');
+        $postsCacheKey = FeedSource::postsCacheKey($provider, $handle, $topic);
 
         $posts = Cache::remember(
             $postsCacheKey,
