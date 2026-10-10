@@ -27,6 +27,8 @@ class FeedSource extends Model
 
     public const string VISIBLE_CACHE_KEY = 'feed_visible_sources';
 
+    public const string POSTS_CACHE_PREFIX = 'feed_posts_';
+
     protected $casts = [
         'active' => 'boolean',
         'last_fetched_at' => 'datetime',
@@ -67,6 +69,39 @@ class FeedSource extends Model
                 ->toArray()
         ));
 
+    }
+
+    /**
+     * The one place feed page cache keys are built, so FeedController
+     * and anything that invalidates them can't drift apart.
+     */
+    public static function postsCacheKey(?string $provider = null, ?string $handle = null, ?string $topic = null): string
+    {
+        if ($topic) {
+            return self::POSTS_CACHE_PREFIX."topic_{$topic}";
+        }
+
+        return self::POSTS_CACHE_PREFIX.($provider ?? 'all').'_'.($handle ?? 'all');
+    }
+
+    /**
+     * Clear every cached feed page that includes this source's posts.
+     */
+    public function forgetPostsCaches(): void
+    {
+        $keys = [
+            self::postsCacheKey(),
+            self::postsCacheKey($this->provider),
+            self::postsCacheKey($this->provider, $this->handle),
+        ];
+
+        if ($this->topic) {
+            $keys[] = self::postsCacheKey(topic: $this->topic->name);
+        }
+
+        foreach ($keys as $key) {
+            Cache::forget($key);
+        }
     }
 
     public function topic(): BelongsTo
