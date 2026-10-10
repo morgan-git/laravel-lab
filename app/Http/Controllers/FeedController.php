@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedController extends Controller
 {
+    private const int POST_LIMIT = 200;
+
     public function index(Request $request, ?string $provider = null, ?string $handle = null)
     {
         $topic = $request->query('topic');
@@ -40,6 +42,7 @@ class FeedController extends Controller
                 }
             })
                 ->orderByDesc('posted_at')
+                ->limit(self::POST_LIMIT)
                 ->get()
                 ->toArray()
         );
