@@ -111,11 +111,17 @@ class SyncFeedSource implements ShouldQueue
             $feedPost->wasRecentlyCreated ? $created++ : $updated++;
         });
 
-        if ($created > 0) {
+        // A run that fetched posts counts as a sync even if every post was
+        // already known. If the provider returned nothing (an outage or a
+        // swallowed API error), leave the timestamp alone so the admin page
+        // still shows that something is wrong.
+        if ($posts->isNotEmpty()) {
             $this->source->update([
                 'last_fetched_at' => now(),
             ]);
+        }
 
+        if ($created > 0) {
             // Evict the public feed page's cached results so new posts
             // show up immediately instead of waiting out the 30 min TTL.
             Cache::forget("{$this->source->provider}_{$this->source->handle}");
