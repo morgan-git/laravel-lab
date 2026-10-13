@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 namespace App\Services;
-
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Log;
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
 use Illuminate\Support\Collection;
@@ -145,7 +146,16 @@ class TumblrService implements FeedProvider
 
             return collect(data_get($json, 'response', []));
 
-        } catch (\Throwable) {
+                } catch (\Throwable $e) {
+            // Don't log $e->getMessage(): Guzzle's messages include the full
+            // request URL, which carries the api_key query parameter.
+            Log::channel('feed-sync')->warning('Tumblr page fetch failed', [
+                'tag' => $tag,
+                'before' => $before,
+                'exception' => $e::class,
+                'status' => $e instanceof RequestException ? $e->getResponse()?->getStatusCode() : null,
+            ]);
+
             return collect();
         }
     }
