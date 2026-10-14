@@ -1,3 +1,5 @@
+import { timeAgo } from './helpers';
+
 window.webhookRequestsTable = (initialRequests) => ({
     requests: initialRequests,
     sortColumn: 'created_at',
@@ -70,31 +72,5 @@ window.webhookRequestsTable = (initialRequests) => ({
         return JSON.stringify(payload, null, 2);
     },
 
-    // Same as feed-sources.js's timeAgo. Worth pulling both into a
-    // shared helper file at some point instead of keeping two copies.
-    timeAgo(dateString) {
-        if (!dateString) return 'Never';
-        const date = new Date(dateString);
-        const seconds = Math.floor((new Date() - date) / 1000);
-
-        if (isNaN(seconds) || seconds < 0) return 'Just now';
-
-        const intervals = {
-            year: 31536000,
-            month: 2592000,
-            week: 604800,
-            day: 86400,
-            hour: 3600,
-            minute: 60,
-            second: 1
-        };
-
-        for (const [unit, secondsInUnit] of Object.entries(intervals)) {
-            const interval = Math.floor(seconds / secondsInUnit);
-            if (interval >= 1) {
-                return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
-            }
-        }
-        return 'Just now';
-    }
+    timeAgo,
 });
