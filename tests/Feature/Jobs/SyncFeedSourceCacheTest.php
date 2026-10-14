@@ -87,3 +87,26 @@ it('leaves the caches alone when a run creates nothing new', function () {
         expect(Cache::has($key))->toBeTrue("{$key} should not have been cleared");
     }
 });
+
+it('clears the cached visible sources list so post counts stay accurate', function () {
+    Cache::put(FeedSource::VISIBLE_CACHE_KEY, ['stale'], now()->addHour());
+    ($this->fakeProvider)([($this->makePost)('1001')]);
+
+    new SyncFeedSource($this->source)->handle();
+
+    expect(Cache::has(FeedSource::VISIBLE_CACHE_KEY))->toBeFalse();
+});
+
+it('keeps the visible sources list cached when a run creates nothing new', function () {
+    ($this->fakeProvider)([($this->makePost)('1001')]);
+
+    // First run saves the post and clears the list.
+    new SyncFeedSource($this->source)->handle();
+
+    Cache::put(FeedSource::VISIBLE_CACHE_KEY, ['fresh'], now()->addHour());
+
+    // Second run finds nothing new, so the list should be left alone.
+    new SyncFeedSource($this->source->fresh())->handle();
+
+    expect(Cache::has(FeedSource::VISIBLE_CACHE_KEY))->toBeTrue();
+});
