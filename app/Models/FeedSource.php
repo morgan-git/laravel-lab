@@ -87,12 +87,18 @@ class FeedSource extends Model
     /**
      * Clear every cached feed page that includes this source's posts.
      */
+        /**
+     * Clear every cached feed page that includes this source's posts, plus
+     * the cached visible-sources list, whose posts_count changes whenever
+     * new posts are saved.
+     */
     public function forgetPostsCaches(): void
     {
         $keys = [
             self::postsCacheKey(),
             self::postsCacheKey($this->provider),
             self::postsCacheKey($this->provider, $this->handle),
+            self::VISIBLE_CACHE_KEY,
         ];
 
         if ($this->topic) {
