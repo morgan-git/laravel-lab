@@ -40,7 +40,7 @@ it('loads only the newest posts when the table has more than the limit', functio
     $this->actingAs(User::factory()->create())
         ->get(route('feed.index'))
         ->assertOk()
-        ->assertViewHas('posts', fn($posts) => $posts->count() === FEED_PAGE_POST_LIMIT
+        ->assertViewHas('posts', fn ($posts) => $posts->count() === FEED_PAGE_POST_LIMIT
             && $posts->first()['title'] === 'Limit test post 000'
             && $posts->last()['title'] === sprintf('Limit test post %03d', FEED_PAGE_POST_LIMIT - 1));
 });

@@ -87,7 +87,7 @@ class FeedSource extends Model
     /**
      * Clear every cached feed page that includes this source's posts.
      */
-        /**
+    /**
      * Clear every cached feed page that includes this source's posts, plus
      * the cached visible-sources list, whose posts_count changes whenever
      * new posts are saved.
