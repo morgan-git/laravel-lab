@@ -3,11 +3,12 @@
 declare(strict_types=1);
 
 namespace App\Services;
-use GuzzleHttp\Exception\RequestException;
-use Illuminate\Support\Facades\Log;
+
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class TumblrService implements FeedProvider
 {
@@ -15,10 +16,13 @@ class TumblrService implements FeedProvider
 
     protected string $apiKey;
 
+    protected PostTextFilter $filter;
+
     /**
      * Off-topic "thanks for the likes" / follow-spam style posts that
-     * sometimes get mistagged into content tags. Not exhaustive — just
-     * the common patterns worth auto-filtering.
+     * sometimes get mistagged into content tags. Not exhaustive, just
+     * the common patterns worth auto-filtering. Passed to the shared
+     * PostTextFilter, which also handles the script and language checks.
      */
     private const array IGNORED_CONTENT_PATTERNS = [
         '/thanks?(?:\s+\w+){0,4}?\s+for\s+(the\s+)?(likes?|follows?|reblogs?)/i',
@@ -31,12 +35,12 @@ class TumblrService implements FeedProvider
     /**
      * Content-farm accounts cross-post the same recipe under rotating
      * "hook" prefixes to look like distinct posts. This list is
-     * necessarily whack-a-mole — every new phrasing the farms invent
+     * necessarily whack-a-mole: every new phrasing the farms invent
      * gets through until it's spotted and added here. A more general
      * "strip any short label: prefix" heuristic would catch future
      * variants automatically, but risks stripping a legitimate post
      * that genuinely starts with something like "Recipe: My Grandma's
-     * Sauce" — deliberately not doing that without discussing the
+     * Sauce". Deliberately not doing that without discussing the
      * false-positive tradeoff first. Used for both the display title
      * cleanup and the dedupe key, so it only needs updating in one
      * place when a new prefix shows up.
@@ -48,7 +52,7 @@ class TumblrService implements FeedProvider
      * case-insensitive prefix against blog_name. Used when a single farm
      * is spinning up multiple sub-blogs (e.g. "optimalrecipes-healthy",
      * "optimalrecipes-baking", "optimalrecipes-dinner", ...) purely to
-     * cross-post the same recycled content under rotating titles — at
+     * cross-post the same recycled content under rotating titles. At
      * that point blocking the whole family is more robust than chasing
      * every new title-prefix variant they invent (they keep inventing
      * new ones; a blog-level block doesn't care what the title says).
@@ -62,13 +66,15 @@ class TumblrService implements FeedProvider
      */
     private const int PAGE_SIZE = 20;
 
-    public function __construct(?Client $client = null)
+    public function __construct(?Client $client = null, ?PostTextFilter $filter = null)
     {
         $this->client = $client ?? new Client([
             'headers' => [
                 'Accept' => 'application/json',
             ],
         ]);
+
+        $this->filter = $filter ?? new PostTextFilter;
 
         $this->apiKey = config('services.tumblr.key');
     }
@@ -146,7 +152,7 @@ class TumblrService implements FeedProvider
 
             return collect(data_get($json, 'response', []));
 
-                } catch (\Throwable $e) {
+        } catch (\Throwable $e) {
             // Don't log $e->getMessage(): Guzzle's messages include the full
             // request URL, which carries the api_key query parameter.
             Log::channel('feed-sync')->warning('Tumblr page fetch failed', [
@@ -178,7 +184,7 @@ class TumblrService implements FeedProvider
 
                 $text = $this->extractText($post);
 
-                if ($this->shouldSkip($text)) {
+                if ($this->filter->shouldSkip($text, self::IGNORED_CONTENT_PATTERNS)) {
                     return null;
                 }
 
@@ -272,55 +278,5 @@ class TumblrService implements FeedProvider
         $text = trim(html_entity_decode(strip_tags((string) $raw), ENT_QUOTES));
 
         return trim((string) preg_replace('/\s+/', ' ', $text));
-    }
-
-    protected function shouldSkip(string $text): bool
-    {
-        if ($text === '') {
-            return false;
-        }
-
-        foreach (self::IGNORED_CONTENT_PATTERNS as $pattern) {
-            if (preg_match($pattern, $text)) {
-                return true;
-            }
-        }
-        if ($this->looksNonLatinScript($text)) {
-            return true;
-        }
-
-        return $this->looksNonEnglish($text);
-    }
-
-    protected function looksNonLatinScript(string $text): bool
-    {
-        $letters = preg_replace('/[^\p{L}]/u', '', $text);
-
-        if ($letters === '' || $letters === null) {
-            return false;
-        }
-
-        $latinLetters = preg_replace('/[^A-Za-z]/', '', $letters);
-
-        return (mb_strlen((string) $latinLetters) / mb_strlen($letters)) < 0.4;
-    }
-
-    protected function looksNonEnglish(string $text): bool
-    {
-        $words = preg_split('/\s+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
-
-        if (count($words) < 6) {
-            return false;
-        }
-
-        static $englishStopwords = [
-            'the', 'and', 'is', 'of', 'to', 'a', 'in', 'for', 'with',
-            'on', 'this', 'that', 'it', 'was', 'are', 'my', 'i',
-            'you', 'we', 'have', 'has', 'be', 'at', 'from', 'or',
-        ];
-
-        $matches = count(array_intersect($words, $englishStopwords));
-
-        return ($matches / count($words)) < 0.08;
     }
 }
