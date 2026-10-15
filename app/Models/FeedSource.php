@@ -34,6 +34,9 @@ class FeedSource extends Model
         'last_fetched_at' => 'datetime',
     ];
 
+    /**
+     * @return HasMany<FeedPost, $this>
+     */
     public function posts(): HasMany
     {
         return $this->hasMany(FeedPost::class);
@@ -110,6 +113,9 @@ class FeedSource extends Model
         }
     }
 
+    /**
+     * @return BelongsTo<Topic, $this>
+     */
     public function topic(): BelongsTo
     {
         return $this->belongsTo(Topic::class);

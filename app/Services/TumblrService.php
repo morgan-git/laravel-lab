@@ -222,8 +222,7 @@ class TumblrService implements FeedProvider
         $clean = preg_replace('/(You might also love:.*)$/i', '', (string) $clean);
 
         $clean = mb_strtolower((string) preg_replace('/[^\p{L}\p{N}\s]/u', '', (string) $clean));
-
-        $words = preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY);
+        $words = preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $words = array_diff($words, ['you', 'might', 'also', 'love', 'recipe', 'this', 'ones', 'a', 'keeper', 'weeknight', 'dinner', 'solved']);
 
         sort($words);

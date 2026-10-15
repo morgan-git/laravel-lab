@@ -46,6 +46,9 @@ class FeedPost extends Model
         'posted_at' => 'datetime',
     ];
 
+    /**
+     * @return BelongsTo<FeedSource, $this>
+     */
     public function source(): BelongsTo
     {
         return $this->belongsTo(FeedSource::class, 'feed_source_id');

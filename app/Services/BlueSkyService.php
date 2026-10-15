@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Collection;
 
 class BlueSkyService implements FeedProvider
@@ -69,7 +68,7 @@ class BlueSkyService implements FeedProvider
 
             return collect();
 
-        } catch (ServerException|\Throwable) {
+        } catch (\Throwable) {
 
             return collect();
 

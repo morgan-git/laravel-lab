@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\IdeaState;
+use Database\Factories\IdeaFactory;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -47,7 +48,7 @@ class Idea extends Model
         'links' => '[]',
     ];
 
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<IdeaFactory> */
     use HasFactory, Notifiable;
 
     public static function getStateCounts(User $user): Collection
