@@ -72,6 +72,9 @@ class Idea extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return HasMany<Step, $this>
+     */
     public function steps(): HasMany
     {
         return $this->hasMany(Step::class);
