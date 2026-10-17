@@ -7,17 +7,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property Carbon|null $reserved_at
+ * @property Carbon|null $available_at
+ * @property Carbon $created_at
+ */
 #[Table(name: 'jobs')]
 #[WithoutTimestamps]
 class QueueJob extends Model
 {
-    protected $casts = [
-        'reserved_at' => 'datetime',
-        'available_at' => 'datetime',
-        'created_at' => 'datetime',
-    ];
-
     /**
      * Pull the job's class name out of its serialized payload.
      */
@@ -41,5 +41,14 @@ class QueueJob extends Model
     {
         return $this->isReserved()
             && $this->reserved_at->lt(now()->subMinutes(5));
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'reserved_at' => 'datetime',
+            'available_at' => 'datetime',
+            'created_at' => 'datetime',
+        ];
     }
 }

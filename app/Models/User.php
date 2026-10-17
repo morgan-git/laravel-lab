@@ -39,6 +39,9 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * @return HasMany<Idea, $this>
+     */
     public function ideas(): HasMany
     {
         return $this->hasMany(Idea::class);

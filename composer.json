@@ -17,6 +17,7 @@
     "require-dev": {
         "driftingly/rector-laravel": "*",
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.12",
         "laravel/boost": "*",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
@@ -61,9 +62,16 @@
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
         ],
+        "install-hooks": [
+            "@php -r \"if (!getenv('CI') && is_dir('.git/hooks') && is_file('scripts/pre-commit')) { copy('scripts/pre-commit', '.git/hooks/pre-commit'); chmod('.git/hooks/pre-commit', 0755); }\""
+        ],
+        "post-install-cmd": [
+            "@install-hooks"
+        ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
-            "@php artisan boost:update --ansi"
+            "@php artisan boost:update --ansi",
+            "@install-hooks"
         ],
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
@@ -82,6 +90,9 @@
         "format": [
             "vendor/bin/rector",
             "vendor/bin/pint"
+        ],
+        "analyse": [
+            "phpstan analyse --memory-limit=1G"
         ]
     },
     "extra": {

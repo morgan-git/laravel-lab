@@ -90,7 +90,7 @@ class IdeaController extends Controller
 
         $idea->update([
             'description' => request('description'),
-            'state' => IdeaState::tryFrom($request->state)?->value ?? IdeaState::PENDING->value,
+            'state' => IdeaState::tryFrom($request->state)->value ?? IdeaState::PENDING->value,
             'title' => request('title'),
         ]);
 

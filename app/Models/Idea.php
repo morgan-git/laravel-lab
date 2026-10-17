@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\IdeaState;
+use Database\Factories\IdeaFactory;
+use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -32,22 +34,16 @@ use Illuminate\Support\Collection;
  *
  * @mixin \Eloquent
  */
+#[Unguarded]
 class Idea extends Model
 {
-    protected $guarded = [];
-
-    protected $casts = [
-        'state' => IdeaState::class,
-        'links' => AsArrayObject::class,
-    ];
-
     // initial attributes set for the model
     protected $attributes = [
         'state' => IdeaState::PENDING->value,
         'links' => '[]',
     ];
 
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<IdeaFactory> */
     use HasFactory, Notifiable;
 
     public static function getStateCounts(User $user): Collection
@@ -71,8 +67,19 @@ class Idea extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return HasMany<Step, $this>
+     */
     public function steps(): HasMany
     {
         return $this->hasMany(Step::class);
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'state' => IdeaState::class,
+            'links' => AsArrayObject::class,
+        ];
     }
 }

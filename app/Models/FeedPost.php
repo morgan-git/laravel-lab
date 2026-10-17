@@ -42,12 +42,18 @@ class FeedPost extends Model
         'dedupe_key',
     ];
 
-    protected $casts = [
-        'posted_at' => 'datetime',
-    ];
-
+    /**
+     * @return BelongsTo<FeedSource, $this>
+     */
     public function source(): BelongsTo
     {
         return $this->belongsTo(FeedSource::class, 'feed_source_id');
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'posted_at' => 'datetime',
+        ];
     }
 }

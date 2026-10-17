@@ -6,7 +6,7 @@ namespace App\Services;
 
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\BadResponseException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -159,7 +159,7 @@ class TumblrService implements FeedProvider
                 'tag' => $tag,
                 'before' => $before,
                 'exception' => $e::class,
-                'status' => $e instanceof RequestException ? $e->getResponse()?->getStatusCode() : null,
+                'status' => $e instanceof BadResponseException ? $e->getResponse()->getStatusCode() : null,
             ]);
 
             return collect();
@@ -222,8 +222,7 @@ class TumblrService implements FeedProvider
         $clean = preg_replace('/(You might also love:.*)$/i', '', (string) $clean);
 
         $clean = mb_strtolower((string) preg_replace('/[^\p{L}\p{N}\s]/u', '', (string) $clean));
-
-        $words = preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY);
+        $words = preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $words = array_diff($words, ['you', 'might', 'also', 'love', 'recipe', 'this', 'ones', 'a', 'keeper', 'weeknight', 'dinner', 'solved']);
 
         sort($words);
@@ -250,7 +249,7 @@ class TumblrService implements FeedProvider
     {
         $blogName = mb_strtolower($blogName);
 
-        return array_any(self::BLOCKED_BLOG_PREFIXES, fn ($prefix) => str_starts_with($blogName, mb_strtolower((string) $prefix)));
+        return array_any(self::BLOCKED_BLOG_PREFIXES, fn (string $prefix) => str_starts_with($blogName, mb_strtolower($prefix)));
     }
 
     protected function extractImage(array $post): ?string

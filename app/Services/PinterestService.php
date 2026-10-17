@@ -6,8 +6,6 @@ namespace App\Services;
 
 use App\Contracts\FeedProvider;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -53,7 +51,7 @@ class PinterestService implements FeedProvider
 
             return $this->parseFeed($xml->channel->item);
 
-        } catch (ClientException|ServerException|\Throwable) {
+        } catch (\Throwable) {
             return collect();
         }
     }

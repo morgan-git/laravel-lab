@@ -12,10 +12,6 @@ use Illuminate\Database\Eloquent\Model;
 #[WithoutTimestamps]
 class FailedJob extends Model
 {
-    protected $casts = [
-        'failed_at' => 'datetime',
-    ];
-
     public function displayName(): string
     {
         $payload = json_decode($this->payload, true);
@@ -32,5 +28,12 @@ class FailedJob extends Model
         $firstLine = strtok($this->exception, "\n");
 
         return $firstLine !== false ? $firstLine : $this->exception;
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'failed_at' => 'datetime',
+        ];
     }
 }
