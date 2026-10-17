@@ -12,3 +12,10 @@ if [ $? -ne 0 ]; then
     echo "Tests failed. Commit aborted."
     exit 1
 fi
+
+echo "Running analysis..."
+composer analyse
+if [ $? -ne 0 ]; then
+    echo "Analysis failed. Commit aborted."
+    exit 1
+fi
