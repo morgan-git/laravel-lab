@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,11 +30,6 @@ class FeedSource extends Model
 
     public const string POSTS_CACHE_PREFIX = 'feed_posts_';
 
-    protected $casts = [
-        'active' => 'boolean',
-        'last_fetched_at' => 'datetime',
-    ];
-
     /**
      * @return HasMany<FeedPost, $this>
      */
@@ -42,12 +38,14 @@ class FeedSource extends Model
         return $this->hasMany(FeedPost::class);
     }
 
-    public function scopeActive($query)
+    #[Scope]
+    protected function active($query)
     {
         return $query->where('active', true);
     }
 
-    public function scopeForProvider($query, string $provider)
+    #[Scope]
+    protected function forProvider($query, string $provider)
     {
         return $query->where('provider', $provider);
     }
@@ -119,5 +117,13 @@ class FeedSource extends Model
     public function topic(): BelongsTo
     {
         return $this->belongsTo(Topic::class);
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'active' => 'boolean',
+            'last_fetched_at' => 'datetime',
+        ];
     }
 }

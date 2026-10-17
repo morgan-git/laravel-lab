@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\IdeaState;
 use Database\Factories\IdeaFactory;
+use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,15 +34,9 @@ use Illuminate\Support\Collection;
  *
  * @mixin \Eloquent
  */
+#[Unguarded]
 class Idea extends Model
 {
-    protected $guarded = [];
-
-    protected $casts = [
-        'state' => IdeaState::class,
-        'links' => AsArrayObject::class,
-    ];
-
     // initial attributes set for the model
     protected $attributes = [
         'state' => IdeaState::PENDING->value,
@@ -78,5 +73,13 @@ class Idea extends Model
     public function steps(): HasMany
     {
         return $this->hasMany(Step::class);
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'state' => IdeaState::class,
+            'links' => AsArrayObject::class,
+        ];
     }
 }

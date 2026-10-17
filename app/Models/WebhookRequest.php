@@ -18,8 +18,11 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class WebhookRequest extends Model
 {
-    protected $casts = [
-        'payload_in' => 'array',
-        'payload_out' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'payload_in' => 'array',
+            'payload_out' => 'array',
+        ];
+    }
 }

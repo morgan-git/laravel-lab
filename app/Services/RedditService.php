@@ -105,7 +105,7 @@ class RedditService implements FeedProvider
     protected function parseFeed(\SimpleXMLElement $xml): Collection
     {
         // Safe check in case the XML parsing failed completely
-        if (! $xml || (! property_exists($xml, 'entry') || $xml->entry === null)) {
+        if (! property_exists($xml, 'entry') || $xml->entry === null) {
             return collect();
         }
 
@@ -135,7 +135,7 @@ class RedditService implements FeedProvider
             }
         }
 
-        return array_any(self::IGNORED_CONTENT_PATTERNS, fn ($pattern) => preg_match($pattern, $content));
+        return array_any(self::IGNORED_CONTENT_PATTERNS, fn (string $pattern) => preg_match($pattern, $content));
     }
 
     protected function extractImage(string $html): ?string

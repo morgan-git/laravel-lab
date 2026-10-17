@@ -45,12 +45,15 @@ class WebhookSentPost extends Model
      */
     public $timestamps = false;
 
-    protected $casts = [
-        'sent_at' => 'datetime',
-    ];
-
     public function post(): BelongsTo
     {
         return $this->belongsTo(FeedPost::class, 'feed_post_id');
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'sent_at' => 'datetime',
+        ];
     }
 }
