@@ -1,6 +1,7 @@
 # afterthesyntax
 
 [![Run Pest Tests](https://github.com/morgan-git/laravel-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/morgan-git/laravel-lab/actions/workflows/tests.yml)
+- Larastan (PHPStan, level 5) for static analysis, Rector and Pint for formatting
 
 A content aggregator that pulls posts from Tumblr and Bluesky, organizes them by topic, and serves them two ways: a public web feed, and a Discord bot whose slash commands return a random post from a topic. Built with Laravel 13 and PHP 8.4.
 
@@ -66,7 +67,7 @@ Pass `-r` / `--restart` to force-restart anything already running. **Note:** thi
 You'll also need:
 
 - **Redis** running locally via Homebrew (`brew services start redis`)
-- A `.git/hooks/pre-commit` copied from `scripts/pre-commit` (not installed automatically on clone)
+- The pre-commit hook (`scripts/pre-commit`) is installed into `.git/hooks` automatically by `composer install`. It runs formatting, static analysis and the test suite before each commit.
 
 ### Environment variables
 
@@ -100,6 +101,8 @@ Tests are split by what they actually exercise, not by history:
 
 The pre-commit hook and CI run `vendor/bin/pest tests/Browser tests/Feature tests/Unit` (via `composer test:browser`, where the name is legacy and now covers all three folders), so everything gets caught regardless of which folder it lives in.
 
+Static analysis runs with `composer analyse` (Larastan at level 5). It runs in the pre-commit hook and in CI, ahead of the slower steps, so type errors fail fast. Level 6 is a planned next step. Most of its findings are missing descriptions of what's inside arrays and Collections.
+
 **Gotcha to watch for:** Pest only discovers files matching `*Test.php` exactly. A lowercase `t` (`...providertest.php` instead of `...ProviderTest.php`) means the file is silently excluded from every run, with no error and no warning. This happened for real in this project, so double-check filenames if a test you know you wrote isn't showing up in the run output at all.
 
 `pest-plugin-browser` is currently back on the main package (no longer pinned to a fork). One browser test involving image upload is currently **commented out** pending a fix, because it broke against the main package's current behavior. Worth restoring once that's sorted out, and not letting it sit commented out indefinitely.
@@ -121,6 +124,4 @@ The webhook endpoint (`/api/webhook/{provider}`) is rate limited to 30 requests 
 
 This started as a Laravel tutorial project (a basic Ideas CRUD app) and grew from there into the aggregator described above.
 
-## Contributing
 
-This is a solo portfolio project and isn't set up to take outside contributions.
