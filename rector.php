@@ -8,7 +8,6 @@ use Rector\TypeDeclaration\Rector\ClassMethod\ReturnTypeFromStrictTypedCallRecto
 use Rector\TypeDeclaration\Rector\ClassMethod\ReturnUnionTypeRector;
 use Rector\TypeDeclaration\Rector\Closure\AddClosureVoidReturnTypeWhereNoReturnRector;
 use Rector\TypeDeclaration\Rector\StmtsAwareInterface\DeclareStrictTypesRector;
-use RectorLaravel\Set\LaravelSetProvider;
 
 return RectorConfig::configure()
     ->withPaths([
@@ -28,13 +27,12 @@ return RectorConfig::configure()
         ReturnTypeFromStrictTypedCallRector::class,
         ReturnUnionTypeRector::class,
         DeclareStrictTypesRector::class => [
-            __DIR__.'/resource/views',
+            __DIR__.'/resources/views',
         ],
         AddArrowFunctionReturnTypeRector::class,
 
     ])
     ->withPhpSets()
-    ->withSetProviders(LaravelSetProvider::class)
     ->withComposerBased(laravel: true)
     ->withPreparedSets(
         deadCode: true,
@@ -46,9 +44,3 @@ return RectorConfig::configure()
     ->withRules([
         DeclareStrictTypesRector::class,
     ]);
-
-// uncomment to reach your current PHP version
-//
-// ->withTypeCoverageLevel(0)
-// ->withDeadCodeLevel(0)
-// ->withCodeQualityLevel(0);
